@@ -48,6 +48,7 @@ export default function CalendarTab() {
 
   const allEvents = useLiveQuery(() => db.events.toArray(), [])
   const members = useLiveQuery(() => db.members.toArray(), [])
+  const tags = useLiveQuery(() => db.tags.toArray(), [])
 
   const visibleEvents = (allEvents ?? []).filter((e) => isVisible(e.ownerId))
 
@@ -93,13 +94,20 @@ export default function CalendarTab() {
 
       <div className="calendar-view-area">
         {mode === 'day' && (
-          <DayView date={current} events={visibleEvents} members={members ?? []} onSelectEvent={setEditingEvent} />
+          <DayView
+            date={current}
+            events={visibleEvents}
+            members={members ?? []}
+            tags={tags ?? []}
+            onSelectEvent={setEditingEvent}
+          />
         )}
         {mode === 'week' && (
           <WeekView
             date={current}
             events={visibleEvents}
             members={members ?? []}
+            tags={tags ?? []}
             onSelectEvent={setEditingEvent}
             onSelectDay={(day) => {
               setCurrent(day)
@@ -112,6 +120,7 @@ export default function CalendarTab() {
             date={current}
             events={visibleEvents}
             members={members ?? []}
+            tags={tags ?? []}
             onSelectDay={(day) => {
               setCurrent(day)
               setMode('day')

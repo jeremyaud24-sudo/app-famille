@@ -1,5 +1,5 @@
 import { isSameDay, monthGrid, WEEKDAY_LABELS } from '../../utils/calendarDates'
-import type { FamilyEvent, FamilyMember } from '../../models/types'
+import type { EventTag, FamilyEvent, FamilyMember } from '../../models/types'
 
 const MAX_DOTS_PER_DAY = 3
 
@@ -7,19 +7,23 @@ export default function MonthView({
   date,
   events,
   members,
+  tags,
   onSelectDay,
 }: {
   date: Date
   events: FamilyEvent[]
   members: FamilyMember[]
+  tags: EventTag[]
   onSelectDay: (day: Date) => void
 }) {
   const days = monthGrid(date)
   const currentMonth = date.getMonth()
   const today = new Date()
 
-  function memberColor(id: string): string {
-    return members.find((m) => m.id === id)?.colorHex ?? '#999'
+  function eventColor(event: FamilyEvent): string {
+    const tagColor = event.tagId && tags.find((t) => t.id === event.tagId)?.colorHex
+    if (tagColor) return tagColor
+    return members.find((m) => m.id === event.ownerId)?.colorHex ?? '#999'
   }
 
   function eventsForDay(day: Date): FamilyEvent[] {
@@ -50,7 +54,7 @@ export default function MonthView({
               <span className="month-cell-number">{day.getDate()}</span>
               <span className="month-cell-dots">
                 {dayEvents.slice(0, MAX_DOTS_PER_DAY).map((e) => (
-                  <span key={e.id} className="month-dot" style={{ background: memberColor(e.ownerId) }} />
+                  <span key={e.id} className="month-dot" style={{ background: eventColor(e) }} />
                 ))}
                 {dayEvents.length > MAX_DOTS_PER_DAY && (
                   <span className="month-more">+{dayEvents.length - MAX_DOTS_PER_DAY}</span>

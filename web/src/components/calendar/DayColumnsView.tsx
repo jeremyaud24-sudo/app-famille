@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { HOUR_FORMATTER, isSameDay, SHORT_WEEKDAY_FORMATTER } from '../../utils/calendarDates'
 import { layoutDayEvents } from '../../utils/dayLayout'
-import type { FamilyEvent, FamilyMember } from '../../models/types'
+import type { EventTag, FamilyEvent, FamilyMember } from '../../models/types'
 
 const HOUR_HEIGHT = 56
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -15,12 +15,14 @@ export default function DayColumnsView({
   days,
   events,
   members,
+  tags,
   onSelectEvent,
   onSelectDay,
 }: {
   days: Date[]
   events: FamilyEvent[]
   members: FamilyMember[]
+  tags: EventTag[]
   onSelectEvent: (event: FamilyEvent) => void
   onSelectDay?: (day: Date) => void
 }) {
@@ -31,8 +33,12 @@ export default function DayColumnsView({
     scrollRef.current?.scrollTo({ top: 7 * HOUR_HEIGHT })
   }, [days.length ? days[0].toDateString() : ''])
 
-  function memberColor(id: string): string {
-    return members.find((m) => m.id === id)?.colorHex ?? '#999'
+  /** Le tag choisi sur l'événement prime sur la couleur du membre, pour
+   * pouvoir distinguer par exemple "École" de "Sport" au premier coup d'œil. */
+  function eventColor(event: FamilyEvent): string {
+    const tagColor = event.tagId && tags.find((t) => t.id === event.tagId)?.colorHex
+    if (tagColor) return tagColor
+    return members.find((m) => m.id === event.ownerId)?.colorHex ?? '#999'
   }
 
   const today = new Date()
@@ -52,7 +58,7 @@ export default function DayColumnsView({
             <button
               key={event.id}
               className="all-day-chip"
-              style={{ background: memberColor(event.ownerId) }}
+              style={{ background: eventColor(event) }}
               onClick={() => onSelectEvent(event)}
             >
               {event.title}
@@ -120,7 +126,7 @@ export default function DayColumnsView({
                           height: Math.max((durationMinutes / 60) * HOUR_HEIGHT - 2, 18),
                           left: `calc(2% + 96% * ${column / columnCount})`,
                           width: `calc(96% / ${columnCount} - 3px)`,
-                          background: memberColor(event.ownerId),
+                          background: eventColor(event),
                         }}
                         onClick={() => onSelectEvent(event)}
                       >

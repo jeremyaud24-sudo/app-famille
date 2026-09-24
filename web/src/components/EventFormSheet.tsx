@@ -14,6 +14,7 @@ function toLocalInputValue(date: Date): string {
 
 export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent; onClose: () => void }) {
   const members = useLiveQuery(() => db.members.toArray(), [])
+  const tags = useLiveQuery(() => db.tags.toArray(), [])
   const { showToast } = useToast()
   const isEditing = event !== undefined
 
@@ -57,6 +58,7 @@ export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent
   const [recurrence, setRecurrence] = useState<RecurrenceRule>(event?.recurrence ?? 'none')
   const [visibility, setVisibility] = useState<EventVisibility>(event?.visibility ?? 'shared')
   const [ownerId, setOwnerId] = useState<string>(event?.ownerId ?? '')
+  const [tagId, setTagId] = useState<string>(event?.tagId ?? '')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const canSave = title.trim().length > 0 && new Date(end).getTime() >= new Date(start).getTime()
@@ -75,6 +77,7 @@ export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent
         recurrence,
         visibility,
         ownerId: resolvedOwnerId,
+        tagId: tagId || undefined,
       })
     } else {
       await db.events.add({
@@ -86,6 +89,7 @@ export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent
         recurrence,
         visibility,
         ownerId: resolvedOwnerId,
+        tagId: tagId || undefined,
         createdAt: new Date(),
       })
     }
@@ -146,6 +150,18 @@ export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent
             {members?.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="field">
+          <label>Tag</label>
+          <select value={tagId} onChange={(e) => setTagId(e.target.value)}>
+            <option value="">Aucun</option>
+            {tags?.map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.name}
               </option>
             ))}
           </select>

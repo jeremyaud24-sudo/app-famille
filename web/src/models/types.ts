@@ -23,6 +23,18 @@ export interface FamilyMember {
 
 export type EventVisibility = 'shared' | 'personal'
 
+/**
+ * Un tag de couleur configurable par l'utilisateur (ex: "École", rouge),
+ * assignable à un ou plusieurs événements pour les distinguer visuellement
+ * indépendamment du membre concerné.
+ */
+export interface EventTag {
+  id: string
+  name: string
+  colorHex: string
+  createdAt: Date
+}
+
 export interface FamilyEvent {
   id: string
   title: string
@@ -33,6 +45,7 @@ export interface FamilyEvent {
   visibility: EventVisibility
   notes?: string
   ownerId: string
+  tagId?: string
   createdAt: Date
 }
 
