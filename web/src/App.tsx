@@ -5,6 +5,7 @@ import CalendarTab from './components/CalendarTab'
 import TaskTab from './components/TaskTab'
 import FamilyTab from './components/FamilyTab'
 import InstallBanner from './components/InstallBanner'
+import { ToastProvider } from './components/Toast'
 
 type Tab = 'calendar' | 'tasks' | 'family'
 
@@ -23,23 +24,25 @@ function App() {
   }, [])
 
   return (
-    <div className="app-shell">
-      <div className="app-content">
-        <InstallBanner />
-        {tab === 'calendar' && <CalendarTab />}
-        {tab === 'tasks' && <TaskTab />}
-        {tab === 'family' && <FamilyTab />}
-      </div>
+    <ToastProvider>
+      <div className="app-shell">
+        <div className="app-content">
+          <InstallBanner />
+          {tab === 'calendar' && <CalendarTab />}
+          {tab === 'tasks' && <TaskTab />}
+          {tab === 'family' && <FamilyTab />}
+        </div>
 
-      <nav className="tab-bar">
-        {TABS.map((t) => (
-          <button key={t.id} className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
-            <span className="tab-icon">{t.icon}</span>
-            <span>{t.label}</span>
-          </button>
-        ))}
-      </nav>
-    </div>
+        <nav className="tab-bar">
+          {TABS.map((t) => (
+            <button key={t.id} className={tab === t.id ? 'active' : ''} onClick={() => setTab(t.id)}>
+              <span className="tab-icon">{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+    </ToastProvider>
   )
 }
 

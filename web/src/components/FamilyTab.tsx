@@ -1,14 +1,21 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { db, MEMBER_COLOR_PALETTE, newId } from '../db'
-import { ROLE_LABELS, type FamilyRole } from '../models/types'
+import { useToast } from './Toast'
+import ConfirmDialog from './ConfirmDialog'
+import { ROLE_LABELS, type FamilyMember, type FamilyRole } from '../models/types'
 
 export default function FamilyTab() {
   const members = useLiveQuery(() => db.members.toArray(), [])
   const [isAdding, setIsAdding] = useState(false)
+  const [deletingMember, setDeletingMember] = useState<FamilyMember | null>(null)
+  const { showToast } = useToast()
 
-  async function handleDelete(id: string) {
-    await db.members.delete(id)
+  async function handleConfirmDelete() {
+    if (!deletingMember) return
+    await db.members.delete(deletingMember.id)
+    showToast('Supprimé')
+    setDeletingMember(null)
   }
 
   return (
@@ -25,7 +32,7 @@ export default function FamilyTab() {
               </div>
               <div className="card-row" style={{ gap: 6 }}>
                 <span className="badge">{ROLE_LABELS[member.role]}</span>
-                <button className="checkbox-btn" onClick={() => handleDelete(member.id)} aria-label="Supprimer">
+                <button className="checkbox-btn" onClick={() => setDeletingMember(member)} aria-label="Supprimer">
                   ✕
                 </button>
               </div>
@@ -39,6 +46,14 @@ export default function FamilyTab() {
       </button>
 
       {isAdding && <MemberFormSheet onClose={() => setIsAdding(false)} />}
+      {deletingMember && (
+        <ConfirmDialog
+          title="Supprimer ce membre ?"
+          message={`${deletingMember.name} sera retiré(e) de la famille. Ses RDV et tâches existants ne seront pas supprimés.`}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeletingMember(null)}
+        />
+      )}
     </>
   )
 }
@@ -46,6 +61,7 @@ export default function FamilyTab() {
 function MemberFormSheet({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('')
   const [role, setRole] = useState<FamilyRole>('enfant')
+  const { showToast } = useToast()
 
   const canSave = name.trim().length > 0
 
@@ -53,6 +69,7 @@ function MemberFormSheet({ onClose }: { onClose: () => void }) {
     if (!canSave) return
     const color = MEMBER_COLOR_PALETTE[Math.floor(Math.random() * MEMBER_COLOR_PALETTE.length)]
     await db.members.add({ id: newId(), name: name.trim(), role, colorHex: color })
+    showToast('Ajouté ✓')
     onClose()
   }
 
