@@ -561,19 +561,41 @@ button {
   min-height: 0;
 }
 
+/* Bandeau "journée entière" : mêmes colonnes que l'en-tête et la grille
+   horaire (hour-label-spacer + N colonnes flex égales), pour que chaque
+   bannière démarre visuellement au-dessus du bon jour. Une bannière qui
+   couvre plusieurs jours est un seul bouton, dans la première colonne
+   qu'elle touche, dont la largeur déborde volontairement sur les colonnes
+   suivantes (overflow visible) plutôt que d'utiliser une grille CSS séparée
+   qui risquerait de désaligner les colonnes par rapport à la grille horaire. */
 .all-day-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 4px 0 8px;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+}
+
+.all-day-cell {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: visible;
 }
 
 .all-day-chip {
+  display: block;
   border: none;
-  border-radius: 8px;
-  padding: 5px 10px;
+  border-radius: 6px;
+  padding: 4px 8px;
   font-size: 12px;
+  font-weight: 500;
   color: white;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .day-event {

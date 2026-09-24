@@ -1,4 +1,4 @@
-import { isSameDay, monthGrid, WEEKDAY_LABELS } from '../../utils/calendarDates'
+import { isSameDay, monthGrid, startOfDay, WEEKDAY_LABELS } from '../../utils/calendarDates'
 import type { EventTag, FamilyEvent, FamilyMember } from '../../models/types'
 
 const MAX_DOTS_PER_DAY = 3
@@ -26,8 +26,11 @@ export default function MonthView({
     return members.find((m) => m.id === event.ownerId)?.colorHex ?? '#999'
   }
 
+  /** Un événement à cheval sur plusieurs jours (ex: un séjour) doit
+   * apparaître chaque jour qu'il couvre, pas seulement à son jour de début. */
   function eventsForDay(day: Date): FamilyEvent[] {
-    return events.filter((e) => isSameDay(e.startDate, day))
+    const dayTime = startOfDay(day).getTime()
+    return events.filter((e) => dayTime >= startOfDay(e.startDate).getTime() && dayTime <= startOfDay(e.endDate).getTime())
   }
 
   return (

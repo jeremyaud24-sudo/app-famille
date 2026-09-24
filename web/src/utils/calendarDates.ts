@@ -19,6 +19,16 @@ export function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
+/** Nombre de jours (calendaires) entre `a` et `b`, positif si `a` est après `b`. */
+export function diffDays(a: Date, b: Date): number {
+  return Math.round((startOfDay(a).getTime() - startOfDay(b).getTime()) / 86_400_000)
+}
+
+/** Un événement chevauche-t-il plusieurs jours calendaires ? */
+export function spansMultipleDays(start: Date, end: Date): boolean {
+  return !isSameDay(start, end)
+}
+
 /** Lundi de la semaine contenant `date`. */
 export function startOfWeek(date: Date): Date {
   const d = startOfDay(date)

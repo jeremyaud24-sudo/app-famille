@@ -1,7 +1,15 @@
 import { useEffect, useRef } from 'react'
-import { HOUR_FORMATTER, isSameDay, SHORT_WEEKDAY_FORMATTER } from '../../utils/calendarDates'
+import { diffDays, HOUR_FORMATTER, isSameDay, SHORT_WEEKDAY_FORMATTER, spansMultipleDays } from '../../utils/calendarDates'
 import { layoutDayEvents } from '../../utils/dayLayout'
 import type { EventTag, FamilyEvent, FamilyMember } from '../../models/types'
+
+interface DayBanner {
+  event: FamilyEvent
+  /** Colonne (0-based, dans `days`) où démarre la bannière — clippée à la vue visible. */
+  startCol: number
+  /** Nombre de colonnes couvertes, clippé à la vue visible. */
+  span: number
+}
 
 const HOUR_HEIGHT = 56
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -44,7 +52,34 @@ export default function DayColumnsView({
   const today = new Date()
   const nowMinutes = today.getHours() * 60 + today.getMinutes()
 
-  const allDayEvents = days.flatMap((day) => events.filter((e) => isSameDay(e.startDate, day) && e.isAllDay))
+  /**
+   * Un événement qui déborde sur plusieurs jours (ex: 22h → 8h le lendemain)
+   * n'a pas de sens dans la grille horaire, qui reprendrait alors les heures
+   * du jour suivant : on l'affiche plutôt en bandeau "journée entière" en
+   * haut, sans horaire, sur toute sa durée — jamais dans la grille.
+   */
+  const isBannerEvent = (e: FamilyEvent) => e.isAllDay || spansMultipleDays(e.startDate, e.endDate)
+
+  const banners: DayBanner[] = events
+    .filter(isBannerEvent)
+    .map((event) => {
+      const rawStart = diffDays(event.startDate, days[0])
+      const rawEnd = diffDays(event.endDate, days[0])
+      return { event, rawStart, rawEnd }
+    })
+    .filter(({ rawEnd, rawStart }) => rawEnd >= 0 && rawStart <= days.length - 1)
+    .map(({ event, rawStart, rawEnd }) => {
+      const startCol = Math.max(rawStart, 0)
+      const endCol = Math.min(rawEnd, days.length - 1)
+      return { event, startCol, span: endCol - startCol + 1 }
+    })
+
+  const bannersByStartCol = new Map<number, DayBanner[]>()
+  for (const banner of banners) {
+    const list = bannersByStartCol.get(banner.startCol) ?? []
+    list.push(banner)
+    bannersByStartCol.set(banner.startCol, list)
+  }
 
   // Largeur totale de la grille : la place que prendraient toutes les
   // colonnes à leur largeur minimale, jamais moins que 100% de l'écran.
@@ -52,26 +87,34 @@ export default function DayColumnsView({
 
   return (
     <div className="day-columns-view">
-      {allDayEvents.length > 0 && (
-        <div className="all-day-row">
-          {allDayEvents.map((event) => (
-            <button
-              key={event.id}
-              className="all-day-chip"
-              style={{ background: eventColor(event) }}
-              onClick={() => onSelectEvent(event)}
-            >
-              {event.title}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* En-tête et grille partagent le même défilement horizontal, pour
-          que les jours restent alignés avec leur colonne quel que soit
-          l'écran — jamais empilés verticalement. */}
+      {/* En-tête, bandeau "journée entière" et grille partagent le même
+          défilement horizontal, pour que les jours restent alignés avec
+          leur colonne quel que soit l'écran — jamais empilés verticalement. */}
       <div className="hour-grid-scroll-x">
         <div className="day-columns-sizer" style={{ width: contentWidth }}>
+          {banners.length > 0 && (
+            <div className="all-day-row">
+              <div className="hour-label-spacer" style={{ width: HOUR_LABEL_WIDTH }} />
+              {days.map((day, i) => (
+                <div key={day.toISOString()} className="all-day-cell" style={{ minWidth: MIN_COLUMN_WIDTH }}>
+                  {(bannersByStartCol.get(i) ?? []).map(({ event, span }) => (
+                    <button
+                      key={event.id}
+                      className="all-day-chip"
+                      style={{
+                        width: `calc(${span * 100}% + ${(span - 1) * 1}px)`,
+                        background: eventColor(event),
+                      }}
+                      onClick={() => onSelectEvent(event)}
+                    >
+                      {event.title}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
           {showHeader && (
             <div className="week-header">
               <div className="hour-label-spacer" style={{ width: HOUR_LABEL_WIDTH }} />
@@ -101,7 +144,7 @@ export default function DayColumnsView({
               </div>
 
               {days.map((day) => {
-                const dayEvents = events.filter((e) => isSameDay(e.startDate, day) && !e.isAllDay)
+                const dayEvents = events.filter((e) => isSameDay(e.startDate, day) && !isBannerEvent(e))
                 const positioned = layoutDayEvents(dayEvents)
                 const isToday = isSameDay(day, today)
 
