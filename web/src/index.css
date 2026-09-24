@@ -473,6 +473,7 @@ button {
 
 .hour-grid-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   position: relative;
 }
@@ -563,13 +564,42 @@ button {
   opacity: 0.9;
 }
 
-/* ---- Vue Semaine ---- */
+/* ---- Vues Jour / Semaine (grille commune à N colonnes) ---- */
 
-.week-view {
+.day-columns-view {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
+}
+
+/* Filet de sécurité : si les colonnes n'ont plus la place de respirer
+   (portrait très étroit + beaucoup de jours), on défile horizontalement
+   plutôt que de les empiler ou de les écraser jusqu'à l'illisible. */
+.hour-grid-scroll-x {
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+  display: flex;
+}
+
+.day-columns-sizer {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-height: 0;
+}
+
+.day-columns-grid {
+  position: relative;
+  display: flex;
+  flex: 1;
+}
+
+.day-column {
+  position: relative;
+  flex: 1;
+  border-left: 1px solid var(--color-border);
 }
 
 .week-header {
@@ -614,11 +644,6 @@ button {
   color: white;
 }
 
-.week-grid {
-  position: relative;
-  display: flex;
-}
-
 .week-hour-labels {
   position: relative;
   width: 40px;
@@ -630,31 +655,11 @@ button {
   left: 0;
 }
 
-.week-day-column {
-  position: relative;
-  flex: 1;
-  border-left: 1px solid var(--color-border);
-}
-
 .week-hour-line {
   position: absolute;
   left: 0;
   right: 0;
   border-top: 1px solid var(--color-border);
-}
-
-.week-event {
-  position: absolute;
-  border: none;
-  border-radius: 4px;
-  color: white;
-  font-size: 9px;
-  line-height: 1.2;
-  padding: 2px 3px;
-  text-align: left;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 /* ---- Vue Mois ---- */

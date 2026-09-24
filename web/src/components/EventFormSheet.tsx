@@ -30,16 +30,28 @@ export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent
    */
   function handleStartChange(value: string) {
     setStart(value)
+    const newStart = new Date(value)
+    if (Number.isNaN(newStart.getTime())) return
+
     if (!endTouched) {
-      const newStart = new Date(value)
-      if (!Number.isNaN(newStart.getTime())) {
-        setEnd(toLocalInputValue(new Date(newStart.getTime() + 3600_000)))
-      }
+      setEnd(toLocalInputValue(new Date(newStart.getTime() + 3600_000)))
+    } else if (newStart.getTime() > new Date(end).getTime()) {
+      // La fin a été fixée à la main mais se retrouve maintenant avant le
+      // nouveau début : on la recale plutôt que de laisser un RDV incohérent.
+      setEnd(toLocalInputValue(new Date(newStart.getTime() + 3600_000)))
     }
   }
 
   function handleEndChange(value: string) {
     setEndTouched(true)
+    // Filet de sécurité en plus de l'attribut `min` du champ : sur un
+    // appareil dont le sélecteur natif laisserait quand même passer une
+    // heure antérieure au début, on la rattrape plutôt que d'enregistrer
+    // un RDV qui finit avant d'avoir commencé.
+    if (new Date(value).getTime() < new Date(start).getTime()) {
+      setEnd(start)
+      return
+    }
     setEnd(value)
   }
   const [recurrence, setRecurrence] = useState<RecurrenceRule>(event?.recurrence ?? 'none')
@@ -47,7 +59,7 @@ export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent
   const [ownerId, setOwnerId] = useState<string>(event?.ownerId ?? '')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
-  const canSave = title.trim().length > 0
+  const canSave = title.trim().length > 0 && new Date(end).getTime() >= new Date(start).getTime()
 
   async function handleSave() {
     if (!canSave) return
@@ -114,7 +126,7 @@ export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent
 
         <div className="field">
           <label>Fin</label>
-          <input type="datetime-local" value={end} onChange={(e) => handleEndChange(e.target.value)} />
+          <input type="datetime-local" value={end} min={start} onChange={(e) => handleEndChange(e.target.value)} />
         </div>
 
         <div className="field">
