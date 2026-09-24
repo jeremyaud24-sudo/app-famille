@@ -67,15 +67,16 @@ export default function CalendarTab() {
       )}
 
       <div className="calendar-nav">
+        <button className="today-btn" onClick={() => setCurrent(new Date())}>
+          Aujourd'hui
+        </button>
         <button className="nav-arrow" onClick={() => setCurrent((d) => shiftDate(mode, d, -1))} aria-label="Précédent">
           ‹
-        </button>
-        <button className="nav-label" onClick={() => setCurrent(new Date())}>
-          {headerLabel(mode, current)}
         </button>
         <button className="nav-arrow" onClick={() => setCurrent((d) => shiftDate(mode, d, 1))} aria-label="Suivant">
           ›
         </button>
+        <span className="nav-label">{headerLabel(mode, current)}</span>
       </div>
 
       <div className="segmented view-switch">
