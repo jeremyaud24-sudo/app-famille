@@ -1,0 +1,278 @@
+:root {
+  color-scheme: light dark;
+  --color-bg: #f2f2f7;
+  --color-surface: #ffffff;
+  --color-text: #1c1c1e;
+  --color-text-secondary: #6e6e73;
+  --color-accent: #4a90d9;
+  --color-border: #e5e5ea;
+  --color-danger: #e0503a;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #000000;
+    --color-surface: #1c1c1e;
+    --color-text: #f2f2f7;
+    --color-text-secondary: #9a9a9e;
+    --color-border: #2c2c2e;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+}
+
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  padding-bottom: 24px;
+}
+
+.screen-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 8px 0 16px;
+}
+
+.tab-bar {
+  display: flex;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tab-bar button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0 6px;
+  background: none;
+  border: none;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.tab-bar button.active {
+  color: var(--color-accent);
+}
+
+.tab-bar .tab-icon {
+  font-size: 20px;
+}
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  background: var(--color-surface);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.card-subtitle {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.badge {
+  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--color-text-secondary);
+  padding: 60px 20px;
+}
+
+.empty-state .empty-icon {
+  font-size: 40px;
+  margin-bottom: 8px;
+}
+
+.fab {
+  position: fixed;
+  right: 20px;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: white;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.checkbox-btn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: var(--color-accent);
+  padding: 0;
+}
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: flex-end;
+  z-index: 10;
+}
+
+.sheet {
+  background: var(--color-surface);
+  width: 100%;
+  border-radius: 18px 18px 0 0;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+
+.sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sheet-header h2 {
+  font-size: 17px;
+  margin: 0;
+}
+
+.sheet-header button {
+  background: none;
+  border: none;
+  font-size: 15px;
+  color: var(--color-accent);
+  padding: 4px 6px;
+}
+
+.sheet-header button:disabled {
+  color: var(--color-text-secondary);
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.field input[type='text'],
+.field input[type='datetime-local'],
+.field input[type='date'],
+.field select,
+.field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 15px;
+}
+
+.segmented {
+  display: flex;
+  border-radius: 10px;
+  background: var(--color-bg);
+  padding: 3px;
+  gap: 3px;
+}
+
+.segmented button {
+  flex: 1;
+  padding: 7px 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-size: 13px;
+}
+
+.segmented button.active {
+  background: var(--color-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.member-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.install-banner {
+  background: var(--color-accent);
+  color: white;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
