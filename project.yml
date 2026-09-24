@@ -1,0 +1,42 @@
+name: AppFamille
+options:
+  bundleIdPrefix: com.appfamille
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: "" # à renseigner avec ton Apple Developer Team ID (Xcode > Signing & Capabilities)
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  AppFamille:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/AppFamille
+    info:
+      path: Sources/AppFamille/Resources/Info.plist
+      properties:
+        UILaunchScreen: {}
+        NSUserNotificationsUsageDescription: "AppFamille utilise les notifications pour te rappeler les rendez-vous et tâches partagés."
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    entitlements:
+      path: Sources/AppFamille/Resources/AppFamille.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers:
+          - "iCloud.com.appfamille.app"
+        com.apple.developer.icloud-services:
+          - CloudKit
+        com.apple.developer.icloud-container-environment: Development
+        aps-environment: development
+    capabilities:
+      - com.apple.developer.icloud-container-identifiers
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.appfamille.app
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
+        TARGETED_DEVICE_FAMILY: "1" # iPhone uniquement pour le MVP
