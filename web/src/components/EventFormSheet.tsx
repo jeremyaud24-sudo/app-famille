@@ -20,6 +20,28 @@ export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent
   const [title, setTitle] = useState(event?.title ?? '')
   const [start, setStart] = useState(() => toLocalInputValue(event?.startDate ?? new Date()))
   const [end, setEnd] = useState(() => toLocalInputValue(event?.endDate ?? new Date(Date.now() + 3600_000)))
+  const [endTouched, setEndTouched] = useState(isEditing)
+
+  /**
+   * Tant que l'utilisateur n'a pas touché la fin lui-même, on la fait
+   * suivre le début (+1h) : sans ça, changer l'heure de début laisse une
+   * fin "figée" sur l'heure d'ouverture du formulaire, ce qui produit des
+   * RDV de durée absurde (ex: 10h → 14h) sans que personne ne l'ait voulu.
+   */
+  function handleStartChange(value: string) {
+    setStart(value)
+    if (!endTouched) {
+      const newStart = new Date(value)
+      if (!Number.isNaN(newStart.getTime())) {
+        setEnd(toLocalInputValue(new Date(newStart.getTime() + 3600_000)))
+      }
+    }
+  }
+
+  function handleEndChange(value: string) {
+    setEndTouched(true)
+    setEnd(value)
+  }
   const [recurrence, setRecurrence] = useState<RecurrenceRule>(event?.recurrence ?? 'none')
   const [visibility, setVisibility] = useState<EventVisibility>(event?.visibility ?? 'shared')
   const [ownerId, setOwnerId] = useState<string>(event?.ownerId ?? '')
@@ -87,12 +109,12 @@ export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent
 
         <div className="field">
           <label>Début</label>
-          <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />
+          <input type="datetime-local" value={start} onChange={(e) => handleStartChange(e.target.value)} />
         </div>
 
         <div className="field">
           <label>Fin</label>
-          <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
+          <input type="datetime-local" value={end} onChange={(e) => handleEndChange(e.target.value)} />
         </div>
 
         <div className="field">

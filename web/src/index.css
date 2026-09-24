@@ -387,3 +387,331 @@ button {
   background: var(--color-danger);
   color: white;
 }
+
+/* ---- Calendrier : toolbar, filtres, navigation ---- */
+
+.calendar-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.filter-toggle {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  font-size: 18px;
+  padding: 6px 10px;
+}
+
+.calendar-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+
+.filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 13px;
+  color: var(--color-text);
+  opacity: 0.5;
+}
+
+.filter-chip.active {
+  opacity: 1;
+}
+
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 10px 0 8px;
+}
+
+.nav-arrow {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: var(--color-accent);
+  padding: 4px 12px;
+}
+
+.nav-label {
+  background: none;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  text-transform: capitalize;
+}
+
+.view-switch {
+  margin-bottom: 10px;
+}
+
+.calendar-view-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Grille horaire commune (Jour / Semaine) ---- */
+
+.hour-grid-scroll {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+}
+
+.hour-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.hour-label {
+  position: relative;
+  top: -8px;
+  left: 4px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  padding-right: 4px;
+}
+
+.now-line {
+  position: absolute;
+  left: 56px;
+  right: 0;
+  height: 2px;
+  background: var(--color-danger);
+  z-index: 2;
+}
+
+.now-dot {
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-danger);
+}
+
+/* ---- Vue Jour ---- */
+
+.day-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.all-day-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0 8px;
+}
+
+.all-day-chip {
+  border: none;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: white;
+}
+
+.day-event {
+  position: absolute;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  text-align: left;
+  padding: 3px 6px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.day-event-title {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.day-event-time {
+  font-size: 10px;
+  opacity: 0.9;
+}
+
+/* ---- Vue Semaine ---- */
+
+.week-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.week-header {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 4px;
+}
+
+.hour-label-spacer {
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.week-day-header {
+  flex: 1;
+  background: none;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 0;
+}
+
+.week-day-name {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.week-day-number {
+  font-size: 14px;
+  font-weight: 600;
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  border-radius: 50%;
+}
+
+.week-day-number.today {
+  background: var(--color-accent);
+  color: white;
+}
+
+.week-grid {
+  position: relative;
+  display: flex;
+}
+
+.week-hour-labels {
+  position: relative;
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.week-hour-labels .hour-label {
+  font-size: 10px;
+  left: 0;
+}
+
+.week-day-column {
+  position: relative;
+  flex: 1;
+  border-left: 1px solid var(--color-border);
+}
+
+.week-hour-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.week-event {
+  position: absolute;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 9px;
+  line-height: 1.2;
+  padding: 2px 3px;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---- Vue Mois ---- */
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.month-cell {
+  background: var(--color-surface);
+  border: none;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 2px;
+  gap: 3px;
+}
+
+.month-cell.outside {
+  opacity: 0.35;
+}
+
+.month-cell-number {
+  font-size: 13px;
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  border-radius: 50%;
+}
+
+.month-cell.today .month-cell-number {
+  background: var(--color-accent);
+  color: white;
+}
+
+.month-cell-dots {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.month-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.month-more {
+  font-size: 8px;
+  color: var(--color-text-secondary);
+}
