@@ -12,6 +12,11 @@ function toLocalInputValue(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+function toLocalDateValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
 export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent; onClose: () => void }) {
   const members = useLiveQuery(() => db.members.toArray(), [])
   const tags = useLiveQuery(() => db.tags.toArray(), [])
@@ -19,9 +24,17 @@ export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent
   const isEditing = event !== undefined
 
   const [title, setTitle] = useState(event?.title ?? '')
+  const [isAllDay, setIsAllDay] = useState(event?.isAllDay ?? false)
   const [start, setStart] = useState(() => toLocalInputValue(event?.startDate ?? new Date()))
   const [end, setEnd] = useState(() => toLocalInputValue(event?.endDate ?? new Date(Date.now() + 3600_000)))
   const [endTouched, setEndTouched] = useState(isEditing)
+  const [allDayStart, setAllDayStart] = useState(() => toLocalDateValue(event?.startDate ?? new Date()))
+  const [allDayEnd, setAllDayEnd] = useState(() => toLocalDateValue(event?.endDate ?? new Date()))
+
+  function handleAllDayStartChange(value: string) {
+    setAllDayStart(value)
+    if (value > allDayEnd) setAllDayEnd(value)
+  }
 
   /**
    * Tant que l'utilisateur n'a pas touché la fin lui-même, on la fait
@@ -61,19 +74,22 @@ export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent
   const [tagId, setTagId] = useState<string>(event?.tagId ?? '')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
-  const canSave = title.trim().length > 0 && new Date(end).getTime() >= new Date(start).getTime()
+  const canSave =
+    title.trim().length > 0 && (isAllDay ? allDayEnd >= allDayStart : new Date(end).getTime() >= new Date(start).getTime())
 
   async function handleSave() {
     if (!canSave) return
     const resolvedOwnerId = ownerId || members?.[0]?.id || newId()
-    const startDate = new Date(start)
+    const startDate = isAllDay ? new Date(`${allDayStart}T00:00:00`) : new Date(start)
+    const endDate = isAllDay ? new Date(`${allDayEnd}T23:59:59`) : new Date(end)
     const id = event?.id ?? newId()
 
     if (isEditing) {
       await db.events.update(id, {
         title: title.trim(),
         startDate,
-        endDate: new Date(end),
+        endDate,
+        isAllDay,
         recurrence,
         visibility,
         ownerId: resolvedOwnerId,
@@ -84,8 +100,8 @@ export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent
         id,
         title: title.trim(),
         startDate,
-        endDate: new Date(end),
-        isAllDay: false,
+        endDate,
+        isAllDay,
         recurrence,
         visibility,
         ownerId: resolvedOwnerId,
@@ -94,7 +110,8 @@ export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent
       })
     }
 
-    scheduleEventReminder(id, title.trim(), startDate)
+    if (!isAllDay) scheduleEventReminder(id, title.trim(), startDate)
+    else cancelEventReminder(id)
     showToast(isEditing ? 'Modifié ✓' : 'Ajouté ✓')
     onClose()
   }
@@ -123,15 +140,36 @@ export default function EventFormSheet({ event, onClose }: { event?: FamilyEvent
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex : Rendez-vous médecin" autoFocus />
         </div>
 
-        <div className="field">
-          <label>Début</label>
-          <input type="datetime-local" value={start} onChange={(e) => handleStartChange(e.target.value)} />
+        <div className="toggle-row">
+          <label style={{ margin: 0 }}>Toute la journée</label>
+          <input type="checkbox" checked={isAllDay} onChange={(e) => setIsAllDay(e.target.checked)} />
         </div>
 
-        <div className="field">
-          <label>Fin</label>
-          <input type="datetime-local" value={end} min={start} onChange={(e) => handleEndChange(e.target.value)} />
-        </div>
+        {isAllDay ? (
+          <>
+            <div className="field">
+              <label>Début</label>
+              <input type="date" value={allDayStart} onChange={(e) => handleAllDayStartChange(e.target.value)} />
+            </div>
+
+            <div className="field">
+              <label>Fin</label>
+              <input type="date" value={allDayEnd} min={allDayStart} onChange={(e) => setAllDayEnd(e.target.value)} />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="field">
+              <label>Début</label>
+              <input type="datetime-local" value={start} onChange={(e) => handleStartChange(e.target.value)} />
+            </div>
+
+            <div className="field">
+              <label>Fin</label>
+              <input type="datetime-local" value={end} min={start} onChange={(e) => handleEndChange(e.target.value)} />
+            </div>
+          </>
+        )}
 
         <div className="field">
           <label>Récurrence</label>
