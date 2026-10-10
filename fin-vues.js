@@ -108,7 +108,7 @@ VUES.prets = function () {
   const E = etatPret(p), c = cfgPret();
   const chips = etat.prets.length > 1 ? `<div class="chips" role="group" aria-label="Choisir un prêt">${etat.prets.map(x => `<button data-act="pret-sel" data-id="${x.id}" aria-pressed="${x.id === p.id}">${esc(x.nom)}</button>`).join('')}</div>` : '';
   const actions = `<div class="rangee"><button class="btn sec" data-act="ouvrir" data-sheet="pret" data-id="${p.id}">Modifier</button><button class="btn danger" data-act="pret-del" data-id="${p.id}">Supprimer</button></div>`;
-  if (!E.ok) return `${chips}<section class="fin-tuile"><span class="t-lbl">${esc(p.nom)}</span><span class="t-bas">L’échéancier ne peut pas être calculé : vérifiez le taux, la durée et la mensualité.</span></section>${actions}`;
+  if (!E.ok) return `${chips}<section class="fin-tuile"><span class="t-lbl">${esc(p.nom)} · ${eur(p.capital)} à ${String(p.taux).replace('.', ',')} % sur ${p.duree} ans</span><span class="t-bas">${p.debut ? 'L’échéancier ne peut pas être calculé : vérifiez le taux, la durée et la mensualité.' : 'Indiquez la date de la 1re échéance (bouton Modifier) pour calculer le capital restant dû, les intérêts et les alertes de rachat.'}</span></section>${actions}`;
   const assur = p.assurance || 0, pcR = Math.min(100, (p.capital - E.crd) / p.capital * 100), A = analyseRachat(p, E);
   const vals = [p.capital, ...E.lignes.filter((_, i) => i % 3 === 2).map(l => l.crd)];
   const totI = E.interetsPayes + E.interetsRestants, partPayes = totI ? E.interetsPayes / totI * 100 : 0;

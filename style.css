@@ -1,25 +1,25 @@
 /* Identité : papier vert-gris, encre profonde, teal comme couleur d'action.
-   Titres en Bricolage Grotesque, texte en Figtree. Mobile d'abord. */
+   Titres en Fraunces (serif), texte en Figtree. Mobile d'abord. */
 :root{
-  --bg:#f2f5f3;--surf:#fff;--surf2:#e9efec;--ink:#14221d;--mut:#556660;--line:#dbe4df;
-  --pri:#0b6b5b;--pri-ink:#fff;--pri-soft:#d8efe9;
-  --ok:#1a7f45;--ok-soft:#dcf2e4;--warn:#8f5400;--warn-soft:#fbecd0;--bad:#b4281f;--bad-soft:#fbe0dd;
-  --shade:rgba(10,20,17,.5);
-  --c1:#0b8f78;--c2:#b36b00;--map:#e6ece8;--rue:#fff;--eau:#cfe3f1;
+  --bg:#f6efe4;--surf:#fffaf1;--surf2:#efe4d2;--ink:#2b211b;--mut:#756557;--line:#e6d9c4;
+  --pri:#b4522f;--pri-ink:#fff;--pri-soft:#f5dfd1;
+  --ok:#4a7a35;--ok-soft:#e3eed8;--warn:#8f5a0a;--warn-soft:#f8e8c6;--bad:#a8352b;--bad-soft:#f7dcd6;
+  --shade:rgba(43,33,27,.5);
+  --c1:#b4522f;--c2:#2878b5;--map:#ece3d2;--rue:#fffaf1;--eau:#cfe0e2;
   --ko:var(--bad);--txt:var(--ink);--card:var(--surf);--bd:var(--line);
-  --f-disp:'Bricolage Grotesque',system-ui,sans-serif;--f-body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-disp:'Fraunces',Georgia,'Times New Roman',serif;--f-body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0e1613;--surf:#16211d;--surf2:#1f2d28;--ink:#e7f0ec;--mut:#9db1a8;--line:#2b3b35;
-  --pri:#4cc2a8;--pri-ink:#06231c;--pri-soft:#1c3a33;
-  --ok:#5fd68c;--ok-soft:#173a26;--warn:#f0b254;--warn-soft:#3b2d12;--bad:#ff8a80;--bad-soft:#40201e;
-  --c1:#2fa88e;--c2:#c97f1e;--map:#1f2b26;--rue:#2b3a34;--eau:#1d3442;
+  --bg:#1b1612;--surf:#262019;--surf2:#322a21;--ink:#f3e9da;--mut:#b5a48f;--line:#3b3127;
+  --pri:#e48a63;--pri-ink:#2a1209;--pri-soft:#44281b;
+  --ok:#9ccf80;--ok-soft:#27361d;--warn:#ecbb62;--warn-soft:#3b2d12;--bad:#ff9a8d;--bad-soft:#41211d;
+  --c1:#d4704a;--c2:#4a9ad6;--map:#2c251d;--rue:#3b3127;--eau:#233a3e;
   --shade:rgba(0,0,0,.62);color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0e1613;--surf:#16211d;--surf2:#1f2d28;--ink:#e7f0ec;--mut:#9db1a8;--line:#2b3b35;
-  --pri:#4cc2a8;--pri-ink:#06231c;--pri-soft:#1c3a33;
-  --ok:#5fd68c;--ok-soft:#173a26;--warn:#f0b254;--warn-soft:#3b2d12;--bad:#ff8a80;--bad-soft:#40201e;
-  --c1:#2fa88e;--c2:#c97f1e;--map:#1f2b26;--rue:#2b3a34;--eau:#1d3442;
+  --bg:#1b1612;--surf:#262019;--surf2:#322a21;--ink:#f3e9da;--mut:#b5a48f;--line:#3b3127;
+  --pri:#e48a63;--pri-ink:#2a1209;--pri-soft:#44281b;
+  --ok:#9ccf80;--ok-soft:#27361d;--warn:#ecbb62;--warn-soft:#3b2d12;--bad:#ff9a8d;--bad-soft:#41211d;
+  --c1:#d4704a;--c2:#4a9ad6;--map:#2c251d;--rue:#3b3127;--eau:#233a3e;
   --shade:rgba(0,0,0,.62);color-scheme:dark}
 
 *{box-sizing:border-box}
@@ -330,3 +330,15 @@ body.fin .fin-select{min-width:0;flex:1 1 auto}
 .cv-echelle{stroke:var(--ink);stroke-width:1.5;fill:none}.cv-km{font:600 10px var(--f-body);fill:var(--ink)}
 .pt-n{flex:none;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;color:#fff;font:700 .8rem var(--f-body)}
 .pt-j{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+
+/* ===== Direction « Journal de famille » : papier, encre brune, terracotta, titres serif ===== */
+h1,h2,h3{font-weight:700;letter-spacing:-.005em}
+.top .date{font-family:var(--f-body)}
+.carte,.fin-tuile,.sp-hero,.sp-tuile,.fil{border-radius:18px;box-shadow:none}
+.hero{border-radius:18px}
+.hero-val,.t-val,.big,.sp-stats b,.fil-stats b,.sp-anneau b,.rep b{font-feature-settings:"lnum","tnum"}
+.hero-val{font-weight:600}
+.tabs{background:var(--surf);border-top:1px solid var(--line)}
+.carte h2,.carte-tete h2{font-size:1.15rem}
+.btn{border-radius:12px}
+.t-val,.sp-stats b,.big{font-weight:600}.hero-val{font-weight:600}
