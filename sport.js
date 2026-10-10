@@ -204,27 +204,103 @@ function chipsSport() {
 }
 const videSport = () => `<section class="carte"><h2>Sport en famille</h2><p class="mut">Ajoutez d’abord les membres de la famille : chacun a son plan d’entraînement, son suivi et ses conseils.</p><button class="btn" data-act="ouvrir" data-sheet="membre">Ajouter un membre</button></section>`;
 
+// ---------- Habillage « Strava » : résumé, journal, records, fil d'activités ----------
+const ICO_SPORT = {
+  course: '<circle cx="15" cy="4.5" r="2"/><path d="M13 9l-3 3 3 3-1 5M13 9l4 3 3-1M10 12l-3 1M13 15l4 4"/>',
+  velo: '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-8h5l3 8M10 8l4 8M9 6h3"/>',
+  natation: '<circle cx="16" cy="6" r="2"/><path d="M4 12l5-2 4 2 3-3M3 16q2.2 2 4.5 0t4.5 0 4.5 0 4.5 0M3 20q2.2 2 4.5 0t4.5 0 4.5 0 4.5 0"/>',
+  muscu: '<path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12"/>',
+  marche: '<circle cx="13" cy="4.5" r="2"/><path d="M12 8l-2 5 3 3v5M12 8l3 4 3 1M10 13l-3 7"/>',
+  yoga: '<circle cx="12" cy="5" r="2"/><path d="M12 8v5M5 12q4 1 7 1t7-1M7 20q2-5 5-5t5 5"/>',
+  collectif: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7l4 3-1.5 5h-5L8 10z"/>',
+  fitness: '<path d="M13 3L5 13h6l-1 8 8-10h-6z"/>',
+  autre: '<path d="M12 4l2.4 5 5.6.7-4.1 3.8 1.1 5.5L12 16.2 7 19l1.1-5.5L4 9.7 9.600 9z"/>',
+};
+const icoSport = (t, px = 22) => `<svg viewBox="0 0 24 24" width="${px}" height="${px}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO_SPORT[t] || ICO_SPORT.autre}</svg>`;
+const kmTxt = d => (Math.round(d * 10) / 10).toString().replace('.', ',');
+const dureeTxt = min => { const m = Math.round(min), h = Math.floor(m / 60); return h ? `${h} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
+const quand = d => { const n = diffJours(d, aujourdhui()); return n === 0 ? 'Aujourd’hui' : n === 1 ? 'Hier' : fmtDate(d); };
+let filMode = 'moi';
+
+// Tracé fictif mais stable : une boucle déterminée par l'identifiant de la séance (aucun GPS dans l'application).
+function traceSvg(s) {
+  let h = 7; for (const c of String(s.id) + s.date) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const rnd = () => { h = (h * 1664525 + 1013904223) >>> 0; return h / 4294967296; };
+  const n = 8, k = Math.min(1.25, 0.75 + (s.distance || 5) / 40), rx = (40 + rnd() * 16) * k, ry = (20 + rnd() * 10) * k, rot = rnd() * Math.PI;
+  const P = Array.from({ length: n }, (_, i) => { const a = i / n * 2 * Math.PI, r = 1 + (rnd() - .5) * .45, x = Math.cos(a) * rx * r, y = Math.sin(a) * ry * r; return [100 + x * Math.cos(rot) - y * Math.sin(rot), 50 + x * Math.sin(rot) + y * Math.cos(rot)]; });
+  let d = `M${P[0][0].toFixed(1)} ${P[0][1].toFixed(1)}`;
+  for (let i = 0; i < n; i++) {
+    const p0 = P[(i + n - 1) % n], p1 = P[i], p2 = P[(i + 1) % n], p3 = P[(i + 2) % n];
+    d += `C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)} ${(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)} ${(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+  }
+  const rues = Array.from({ length: 5 }, () => `M${(rnd() * 200).toFixed(0)} 0L${(rnd() * 200).toFixed(0)} 100`).join('') + Array.from({ length: 4 }, () => `M0 ${(rnd() * 100).toFixed(0)}L200 ${(rnd() * 100).toFixed(0)}`).join('');
+  return `<svg class="trace" viewBox="0 0 200 100" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Tracé indicatif de la séance"><rect width="200" height="100" class="trace-fond"/><path d="${rues}" class="trace-rues"/><path d="M${(rnd() * 80).toFixed(0)} 100Q60 ${60 + (rnd() * 30) | 0} 120 100Z" class="trace-eau"/>
+    <path d="${d}Z" class="trace-halo"/><path d="${d}Z" class="trace-ligne"/><circle cx="${P[0][0].toFixed(1)}" cy="${P[0][1].toFixed(1)}" r="4.2" fill="#2fb36d" stroke="#fff" stroke-width="1.6"/></svg>`;
+}
+function resumeSemaine(m) {
+  const lun = semaine(0), jours = Array.from({ length: 7 }, (_, i) => { const date = iso(ajouteJours(parse(lun), i)), l = seancesDe(m.id).filter(s => s.date === date); return { date, min: somme(l, s => s.duree), km: somme(l, s => s.distance || 0) }; });
+  const mx = Math.max(30, ...jours.map(j => j.min)), auj = aujourdhui(), st = statsSemaine(m.id, lun), km = somme(st.l, s => s.distance || 0);
+  return { st, km, html: `<div class="sp-jours" role="img" aria-label="Minutes par jour cette semaine">${jours.map((j, i) => `<div class="sp-j${j.date === auj ? ' auj' : ''}${j.date > auj ? ' futur' : ''}" title="${fmtDate(j.date)} : ${j.min} min"><span class="sp-j-piste"><i style="height:${j.min ? Math.max(8, j.min / mx * 100) : 0}%"></i></span><b>${'LMMJVSD'[i]}</b></div>`).join('')}</div>` };
+}
+function anneau(pct, txt, sous) {
+  const r = 26, c = 2 * Math.PI * r, p = Math.min(1, pct);
+  return `<div class="sp-anneau"><svg viewBox="0 0 64 64" width="72" height="72" role="img" aria-label="${Math.round(pct * 100)} % de l’objectif"><circle cx="32" cy="32" r="${r}" class="an-piste"/><circle cx="32" cy="32" r="${r}" class="an-val" stroke-dasharray="${(c * p).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 32 32)"/></svg><span><b>${txt}</b><small>${sous}</small></span></div>`;
+}
+function serieSemaines(id) {
+  let n = 0, k = statsSemaine(id, semaine(0)).n ? 0 : 1;
+  for (; k < 200 && statsSemaine(id, semaine(k)).n; k++) n++;
+  return n;
+}
+function journal(id) {
+  const auj = aujourdhui(), cols = Array.from({ length: 12 }, (_, w) => { const lun = semaine(11 - w); return Array.from({ length: 7 }, (_, i) => { const date = iso(ajouteJours(parse(lun), i)), min = somme(seancesDe(id).filter(s => s.date === date), s => s.duree); return `<i class="h${date > auj ? 'f' : min >= 90 ? 4 : min >= 60 ? 3 : min >= 30 ? 2 : min > 0 ? 1 : 0}" title="${fmtDate(date)}${min ? ' : ' + min + ' min' : ''}"></i>`; }).join(''); });
+  return `<div class="sp-journal" role="img" aria-label="Journal des 12 dernières semaines">${cols.map(c => `<div>${c}</div>`).join('')}</div>`;
+}
+function recordsSport(id) {
+  const l = seancesDe(id), longue = l.filter(s => s.distance).sort((a, b) => b.distance - a.distance)[0], course = l.filter(s => s.type === 'course' && s.distance >= 3 && allureSec(s) != null).sort((a, b) => allureSec(a) - allureSec(b))[0], dur = [...l].sort((a, b) => b.duree - a.duree)[0];
+  const ligne = (ico, lbl, val, s) => `<div class="sp-rec"><span class="sp-rec-ico">${icoSport(ico, 20)}</span><span class="sp-rec-t"><small>${lbl}</small><b>${val}</b></span><small>${fmtDate(s.date).split(' ').slice(1).join(' ')}</small></div>`;
+  return [longue && ligne(longue.type, 'Plus longue sortie', kmTxt(longue.distance) + ' km', longue), course && ligne('course', 'Meilleure allure (3 km +)', fmtAllureVal('course', allureSec(course)), course), dur && ligne(dur.type, 'Séance la plus longue', dureeTxt(dur.duree), dur)].filter(Boolean).join('');
+}
+function carteFil(s, moi) {
+  const m = membre(s.membre), v = allureSec(s), dist = s.distance && SPORT_DIST.includes(s.type), bravos = s.bravos || [], aime = bravos.includes(etat.actif);
+  const stats = dist ? [['Distance', kmTxt(s.distance) + ' km'], [s.type === 'velo' ? 'Vitesse' : 'Allure', v != null ? fmtAllureVal(s.type, v) : '–'], ['Durée', dureeTxt(s.duree)]] : [['Durée', dureeTxt(s.duree)], ['Effort', s.rpe + '/10'], ['Charge', pnum(s.duree * s.rpe)]];
+  return `<article class="fil">
+    <header>${avatar(s.membre, true)}<span class="fil-qui"><b>${esc(m ? m.nom : '')}</b><small>${quand(s.date)} · ${nomSport(s.type)}</small></span><span class="fil-ico">${icoSport(s.type, 22)}</span></header>
+    <button class="fil-titre" data-act="ouvrir" data-sheet="seance" data-id="${s.id}">${esc(s.titre || nomSport(s.type))}</button>
+    ${s.note ? `<p class="fil-note">${esc(s.note)}</p>` : ''}
+    <div class="fil-stats">${stats.map(([a, b]) => `<div><small>${a}</small><b>${b}</b></div>`).join('')}</div>
+    ${dist && s.type !== 'natation' ? traceSvg(s) : ''}
+    <footer><span class="fil-badges">${badgeAllure(s)}${s.douleur ? '<span class="pill warn">Gêne</span>' : ''}</span>
+      <button class="bravo${aime ? ' on' : ''}" data-act="bravo" data-id="${s.id}" aria-pressed="${aime}" aria-label="Féliciter, ${bravos.length} bravo${pl(bravos.length)}"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.600a4.3 4.3 0 0 1 7.500 2.700C19.500 15.900 12 20.500 12 20.500z" fill="${aime ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>${bravos.length ? `<span>${bravos.length}</span>` : ''}</button>
+      <button class="icone" data-act="seance-del" data-id="${s.id}" aria-label="Supprimer la séance">${ico('x', 18)}</button></footer>
+    ${bravos.length ? `<p class="fil-bravos">Bravo de ${bravos.map(i => esc((membre(i) || { nom: '?' }).nom)).join(', ')}</p>` : ''}</article>`;
+}
+
 VUES.suivisport = function () {
   const m = membreSport();
   if (!m) return videSport();
-  const p = profilSport(m.id), objH = objectifHebdo(m, p), s0 = statsSemaine(m.id, semaine(0)), auj = aujourdhui();
-  const prevu = prevuesLe(m.id, auj);
-  const faitsAuj = seancesDe(m.id).filter(s => s.date === auj);
-  const aFaire = prevu.filter(x => !faitsAuj.some(s => s.type === x.type));
-  const semaines = Array.from({ length: 8 }, (_, i) => { const k = 7 - i, lun = semaine(k), d = parse(lun); return { label: `Semaine du ${d.getDate()} ${MOIS[d.getMonth()]}`, court: `${d.getDate()}/${d.getMonth() + 1}`, v: [statsSemaine(m.id, lun).minutes] }; });
-  const recent = [...seancesDe(m.id)].sort((a, b) => b.date.localeCompare(a.date) || (b.id > a.id ? 1 : -1)).slice(0, 10);
+  const p = profilSport(m.id), objH = objectifHebdo(m, p), R = resumeSemaine(m), s0 = R.st, auj = aujourdhui();
+  const aFaire = prevuesLe(m.id, auj).filter(x => !seancesDe(m.id).some(s => s.date === auj && s.type === x.type));
+  const serie = serieSemaines(m.id), tri = l => [...l].sort((a, b) => b.date.localeCompare(a.date) || (b.id > a.id ? 1 : -1));
+  const fil = tri(filMode === 'famille' ? etat.sportSeances.filter(s => membre(s.membre)) : seancesDe(m.id)).slice(0, filMode === 'famille' ? 14 : 10), rec = recordsSport(m.id);
+  const stats = R.km > 0 ? [['Distance', kmTxt(R.km) + ' km'], ['Durée', dureeTxt(s0.minutes)], ['Séances', s0.n]] : [['Durée', dureeTxt(s0.minutes)], ['Séances', s0.n], ['Jours actifs', s0.jours]];
   return `${chipsSport()}
-    <section class="hero"><p class="hero-lbl">Cette semaine · ${esc(m.nom)}</p><p class="hero-val">${s0.minutes} <span style="font-size:1.1rem;font-weight:600">/ ${objH} min</span></p>
-      <div class="jauge" style="background:color-mix(in srgb,var(--pri-ink) 25%,transparent)"><i style="width:${Math.min(100, s0.minutes / objH * 100)}%;background:var(--pri-ink)"></i></div>
-      <p class="hero-sub">${s0.n} séance${pl(s0.n)} · ${s0.jours} jour${pl(s0.jours)} actif${pl(s0.jours)} · charge ${pnum(s0.charge)}</p></section>
-    <section class="carte"><div class="carte-tete"><h2>Aujourd’hui</h2><button class="lien" data-goto="plansport">Plan</button></div>
-      ${aFaire.map(x => `<div class="rang"><span class="rang-txt"><b>${esc(x.titre || nomSport(x.type))}</b><small>${nomSport(x.type)} · ${x.duree} min · effort ${x.rpe}/10</small></span><button class="btn" data-act="ouvrir" data-sheet="seance" data-plan="${x.id}">Valider</button></div>`).join('')
-        || (faitsAuj.length ? `<p class="mut">Séance enregistrée aujourd’hui : ${faitsAuj.map(s => esc(s.titre || nomSport(s.type)) + ' ' + s.duree + ' min').join(', ')}.</p>` : '<p class="vide">Rien de prévu aujourd’hui. Jour de repos ou séance libre.</p>')}</section>
+    <section class="sp-hero"><div class="sp-id">${avatar(m.id, true)}<span><b>${esc(m.nom)}</b><small>Cette semaine</small></span><button class="lien" data-act="ouvrir" data-sheet="sport-profil">Profil</button></div>
+      <div class="sp-stats">${stats.map(([a, b]) => `<div><small>${a}</small><b>${b}</b></div>`).join('')}</div>${R.html}</section>
+    <div class="fin-grille">
+      <section class="sp-tuile"><span class="t-lbl">Objectif</span>${anneau(s0.minutes / objH, s0.minutes + '<i> min</i>', 'sur ' + objH)}</section>
+      <section class="sp-tuile"><span class="t-lbl">Série</span><span class="t-val sp-serie">${serie}<i> sem.</i></span><small class="mut">${serie ? 'consécutives avec une séance' : 'Une séance lance la série'}</small></section></div>
+    <section class="sp-tuile"><span class="t-lbl">Journal · 12 semaines</span>${journal(m.id)}</section>
+    ${aFaire.length ? `<section class="sp-tuile"><span class="t-lbl">À faire aujourd’hui</span>${aFaire.map(x => `<div class="rang"><span class="sp-rec-ico">${icoSport(x.type, 20)}</span><span class="rang-txt"><b>${esc(x.titre || nomSport(x.type))}</b><small>${x.duree} min · effort ${x.rpe}/10</small></span><button class="btn" data-act="ouvrir" data-sheet="seance" data-plan="${x.id}">Valider</button></div>`).join('')}</section>` : ''}
+    ${rec ? `<section class="sp-tuile"><span class="t-lbl">Records</span>${rec}</section>` : ''}
     ${carteAllure(m)}
-    <section class="carte"><h2>Minutes par semaine</h2>${grapheBarres('sport8', semaines, [{ nom: 'Minutes', c: '--c1' }], 'Minutes d’activité sur 8 semaines', v => Math.round(v) + ' min')}</section>
-    <section class="carte"><div class="carte-tete"><h2>Dernières séances</h2><button class="lien" data-act="ouvrir" data-sheet="sport-profil">Profil</button></div>
-      <ul class="liste">${recent.map(s => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="seance" data-id="${s.id}"><span class="rang-txt"><b>${esc(s.titre || nomSport(s.type))}</b><small>${fmtDate(s.date)} · ${s.duree} min · effort ${s.rpe}/10${s.distance ? ' · ' + String(s.distance).replace('.', ',') + ' km' : ''}${fmtAllure(s) ? ' · ' + fmtAllure(s) : ''}${s.douleur ? ' · douleur' : ''}</small></span>${badgeAllure(s)}</button>
-        <button class="icone" data-act="seance-del" data-id="${s.id}" aria-label="Supprimer la séance">${ico('x', 18)}</button></li>`).join('') || '<li class="vide">Aucune séance enregistrée. Touchez « + Séance » pour commencer.</li>'}</ul></section>`;
+    <div class="chips" role="group" aria-label="Fil d’activités"><button data-act="fil-mode" data-v="moi" aria-pressed="${filMode === 'moi'}">Mes activités</button><button data-act="fil-mode" data-v="famille" aria-pressed="${filMode === 'famille'}">Fil de la famille</button></div>
+    ${fil.map(s => carteFil(s)).join('') || '<section class="sp-tuile"><p class="vide">Aucune séance. Touchez « + Séance » pour publier la première.</p></section>'}`;
+};
+ACTIONS['fil-mode'] = el => { filMode = el.dataset.v; return 'vue'; };
+ACTIONS.bravo = el => {
+  const s = etat.sportSeances.find(x => x.id === el.dataset.id); if (!s) return;
+  const qui = etat.actif || s.membre; s.bravos = s.bravos || [];
+  const i = s.bravos.indexOf(qui); if (i >= 0) s.bravos.splice(i, 1); else s.bravos.push(qui);
 };
 VUES.plansport = function () {
   const m = membreSport();

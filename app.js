@@ -185,6 +185,7 @@ function aller(v) {
 function rendre() {
   const S = SECTIONS[section], v = vueCourante(), actif = membre(etat.actif);
   document.body.classList.toggle('fin', section === 'argent');
+  document.body.classList.toggle('sp', section === 'sport');
   document.getElementById('titre').textContent = section === 'accueil' ? `Bonjour${actif ? ', ' + actif.nom : ''}` : S.titre;
   document.getElementById('sousTitre').textContent = section === 'accueil' ? fmtLong(aujourdhui()) : '';
   document.getElementById('tabs').innerHTML = Object.keys(SECTIONS).filter(s => !SECTIONS[s].cache).map(s =>

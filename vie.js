@@ -124,7 +124,7 @@ VUES.voyages = function () {
   const dep = somme(v.depenses, d => d.montant), faits = v.checklist.filter(c => c.fait).length;
   const nuits = Math.max(0, diffJours(v.debut, v.fin));
   return `<div class="chips" role="group" aria-label="Choisir un voyage">${tri.map(x => `<button data-act="voy-sel" data-id="${x.id}" aria-pressed="${x.id === v.id}">${esc(x.nom)}</button>`).join('')}</div>
-    <section class="hero${v.photo ? ' hero-photo' : ''}"${v.photo ? ` style="background-image:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.68)),url('${v.photo}')"` : ''}><p class="hero-lbl">${esc(v.destination || 'Destination à préciser')}</p><p class="hero-val">${fini ? 'Terminé' : jours > 0 ? `J-${jours}` : 'En cours'}</p>
+    <section class="hero hero-voy${v.photo ? ' hero-photo' : ''}" style="${v.photo ? `background-image:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.68)),url('${v.photo}')` : `background:${illuFond(v.destination)}`}">${v.photo ? '' : illuSvg(v.destination)}<p class="hero-lbl">${esc(v.destination || 'Destination à préciser')}</p><p class="hero-val">${fini ? 'Terminé' : jours > 0 ? `J-${jours}` : 'En cours'}</p>
       <p class="hero-sub">${fmtDate(v.debut)} → ${fmtDate(v.fin)} · ${nuits} nuit${pl(nuits)}</p></section>
     ${carteProgramme(v)}
     <section class="carte"><div class="carte-tete"><h2>Checklist</h2><span class="pill pri">${faits}/${v.checklist.length}</span></div>
@@ -152,12 +152,12 @@ SHEETS.voyage = d => {
     <div class="duo">${fld('Voyageurs', `<select name="voyageurs">${optSel(VOYAGEURS, val(v, 'voyageurs', etat.membres.length >= 3 ? 'famille' : 'couple'))}</select>`)}${fld('Rythme', `<select name="rythme">${optSel(RYTHMES, val(v, 'rythme', 'equilibre'))}</select>`)}</div>
     ${fld('Budget (€, facultatif)', `<input type="number" name="budget" min="0" step="50" inputmode="decimal" value="${val(v, 'budget', '') || ''}">`)}
     <div class="champ"><span>Photo de la destination (facultatif)</span>
-      <div class="photo-zone" id="photoZone">${v && v.photo ? `<img src="${esc(v.photo)}" alt="Photo actuelle de la destination">` : ''}</div>
+      <div class="photo-zone" id="photoZone">${v && v.photo ? `<img src="${esc(v.photo)}" alt="Photo actuelle de la destination">` : `<div class="illu-prev" style="background:${illuFond(val(v, 'destination'))}">${illuSvg(val(v, 'destination'))}</div>`}</div>
       <input type="hidden" name="photo" value="">
       <label class="btn sec">Choisir une photo<input type="file" id="photoFichier" accept="image/*" hidden></label>
       ${v && v.photo ? '<label class="rang-main"><input type="checkbox" class="coche" name="retirerPhoto"><span class="rang-txt">Retirer la photo</span></label>' : ''}
       <a class="lien" id="lienPhoto" target="_blank" rel="noopener" href="https://unsplash.com/s/photos/${encodeURIComponent(val(v, 'destination'))}">Chercher une photo libre de droits ↗</a>
-      <small>Enregistrez l’image depuis le site, puis choisissez-la ici. Elle est réduite pour rester légère.</small></div>
+      <small>Sans photo, une illustration de la destination est dessinée automatiquement. Une photo choisie ici est réduite pour rester légère.</small></div>
     <small>Avec une destination et des dates, l’application propose un programme d’activités adapté aux voyageurs.</small>
     <button class="btn plein">Enregistrer</button></form>` };
 };
@@ -380,6 +380,8 @@ document.addEventListener('change', async e => {
 });
 document.addEventListener('input', e => {
   if (e.target.name !== 'destination') return;
+  const ip = document.querySelector('#photoZone .illu-prev');
+  if (ip) { ip.style.background = illuFond(e.target.value); ip.innerHTML = illuSvg(e.target.value); }
   const l = document.getElementById('lienPhoto');
   if (l) l.href = 'https://unsplash.com/s/photos/' + encodeURIComponent(e.target.value);
 });
