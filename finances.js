@@ -2,12 +2,14 @@
 // Prévision de trésorerie, alertes de budget et patrimoine net.
 
 function cfgTreso() {
-  etat.treso = { solde: null, seuil: 500, courantes: null, maj: '', ...(etat.treso || {}) };
-  return etat.treso;
+  const d = { solde: null, seuil: 500, courantes: null, maj: ''}, o = etat.treso || (etat.treso = {});
+  for (const k in d) if (o[k] === undefined) o[k] = d[k];
+  return o;
 }
 function cfgPat() {
-  etat.pat = { maison: 0, epargne: 0, autres: 0, ...(etat.pat || {}) };
-  return etat.pat;
+  const d = { maison: 0, epargne: 0, autres: 0}, o = etat.pat || (etat.pat = {});
+  for (const k in d) if (o[k] === undefined) o[k] = d[k];
+  return o;
 }
 
 // ---------- Trésorerie ----------
@@ -98,7 +100,7 @@ function patrimoineCalc() {
   const liq = typeof cfg === 'function' ? cfg().liquidites || 0 : 0;
   const prets = etat.prets.map(p => { const E = etatPret(p); return { nom: p.nom, crd: E.ok ? E.crd : 0 }; });
   const actifs = [
-    ['Logement', pat.maison], ['Bourse (titres et liquidités)', titres + liq], ['Épargne disponible', pat.epargne],
+    ['Logement', pat.maison], ['Bourse (titres et liquidités)', titres + liq], ['Épargne', somme(etat.epargne || [], c => c.solde || 0) + pat.epargne],
     ['Objectifs d’épargne', somme(etat.objectifs, o => o.actuel || 0)], ['Compte courant', Math.max(0, cfgTreso().solde || 0)], ['Autres actifs', pat.autres],
   ].filter(([, v]) => v > 0);
   const totalA = somme(actifs, a => a[1]), dettes = somme(prets, p => p.crd);
@@ -125,6 +127,13 @@ VUES.patrimoine = function () {
       <div class="empile" role="img" aria-label="Composition des actifs">${P.actifs.map(([n, v], i) => `<i style="flex:${v};background:${COUL[i]}" title="${esc(n)}"></i>`).join('')}</div>
       <ul class="legende">${P.actifs.map(([n, v], i) => `<li><i style="background:${COUL[i]}"></i>${esc(n)} <b class="num">${pc(v / P.totalA * 100)}</b></li>`).join('')}</ul>
       ${P.actifs.map(([n, v]) => `<div class="kv"><span>${esc(n)}</span><b>${eur(v)}</b></div>`).join('')}</section>` : ''}
+    <section class="carte"><div class="carte-tete"><h2>Épargne</h2><button class="lien" data-act="ouvrir" data-sheet="epargne">Ajouter un compte</button></div>
+      ${(etat.epargne || []).length ? `<ul class="liste">${etat.epargne.map(c => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="epargne" data-id="${c.id}" aria-label="Modifier ${esc(c.nom)}"><span class="rang-txt"><b>${esc(c.nom)}</b><small>${esc(nomEpargne(c.type))}${c.taux ? ' · ' + String(c.taux).replace('.', ',') + ' %' : ''}</small></span><b class="num">${eur(c.solde || 0)}</b></button>
+        <button class="btn sec" data-act="epargne-versement" data-id="${c.id}" style="min-height:36px;padding:0 12px">Versement</button></li>`).join('')}</ul>
+        <div class="kv"><span>Total des comptes</span><b>${eur(somme(etat.epargne, c => c.solde || 0))}</b></div>
+        ${somme(etat.epargne, c => (c.solde || 0) * (c.taux || 0) / 100) > 0 ? `<div class="kv"><span>Intérêts annuels estimés</span><b>${eur(somme(etat.epargne, c => (c.solde || 0) * (c.taux || 0) / 100))}</b></div>` : ''}`
+        : '<p class="vide">Ajoutez vos livrets et placements (Livret A, assurance-vie, PEL…) pour suivre votre épargne et chaque versement.</p>'}
+      ${pat.epargne > 0 ? `<div class="kv"><span>Épargne non détaillée</span><span><b>${eur(pat.epargne)}</b> <button class="lien" data-act="ouvrir" data-sheet="epargne" data-reprise="1">Détailler</button></span></div>` : ''}</section>
     <section class="carte"><h2>Dettes</h2>
       ${P.prets.map(p => `<div class="kv"><span>${esc(p.nom)} (capital restant dû)</span><b>${eur(p.crd)}</b></div>`).join('') || '<p class="vide">Aucun prêt suivi. Ajoutez-le dans l’onglet Prêts.</p>'}
       ${ltv != null ? `<small>Les prêts représentent ${pc(ltv)} de la valeur du logement.</small>` : ''}</section>
@@ -133,8 +142,8 @@ VUES.patrimoine = function () {
         : '<p class="vide">Un point est enregistré chaque jour d’utilisation. La courbe apparaîtra dans quelques jours.</p>'}</section>
     <section class="carte"><h2>Mes valeurs</h2>
       ${fld('Valeur estimée du logement (€)', `<input type="number" step="1000" inputmode="decimal" data-pat="maison" value="${pat.maison || ''}">`)}
-      <div class="duo">${fld('Épargne disponible (€)', `<input type="number" step="100" inputmode="decimal" data-pat="epargne" value="${pat.epargne || ''}">`)}${fld('Autres actifs (€)', `<input type="number" step="100" inputmode="decimal" data-pat="autres" value="${pat.autres || ''}">`)}</div>
-      <small>Les autres valeurs viennent de l’application : bourse, objectifs d’épargne, solde du compte courant et prêts. Estimez le logement avec prudence, à partir de ventes récentes dans votre quartier.</small></section>`;
+      <div class="duo">${fld('Épargne non détaillée (€)', `<input type="number" step="100" inputmode="decimal" data-pat="epargne" value="${pat.epargne || ''}">`)}${fld('Autres actifs (€)', `<input type="number" step="100" inputmode="decimal" data-pat="autres" value="${pat.autres || ''}">`)}</div>
+      <small>Les autres valeurs viennent de l’application : bourse, comptes d’épargne, objectifs, solde du compte courant et prêts. Estimez le logement avec prudence, à partir de ventes récentes dans votre quartier.</small></section>`;
 };
 function changeFin(t) {
   if (t.dataset.treso) {
@@ -145,3 +154,41 @@ function changeFin(t) {
   } else cfgPat()[t.dataset.pat] = Number(t.value) || 0;
   sauver(); rendre();
 }
+
+// ---------- Comptes d'épargne ----------
+const TYPES_EPARGNE = [['livretA', 'Livret A'], ['ldds', 'LDDS'], ['lep', 'LEP'], ['pel', 'PEL'], ['av', 'Assurance-vie'], ['per', 'PER'], ['cat', 'Compte à terme'], ['autre', 'Autre']];
+const nomEpargne = k => (TYPES_EPARGNE.find(t => t[0] === k) || [0, 'Autre'])[1];
+SHEETS.epargne = d => {
+  const c = d.id ? (etat.epargne || []).find(x => x.id === d.id) : null, reprise = !c && d.reprise === '1';
+  const hist = c && c.mouvements && c.mouvements.length ? `<h3 class="mut" style="margin:0;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em">Derniers mouvements</h3><ul class="liste">${[...c.mouvements].reverse().slice(0, 5).map(m => `<li class="rang" style="min-height:38px"><span class="rang-txt">${fmtDate(m.date)}</span><b class="num" style="color:var(--${m.montant < 0 ? 'bad' : 'ok'})">${m.montant > 0 ? '+' : ''}${eur(m.montant)}</b></li>`).join('')}</ul>` : '';
+  return { titre: c ? 'Modifier le compte' : 'Ajouter un compte d’épargne', corps: `<form class="formulaire" data-form="epargne"><input type="hidden" name="id" value="${c ? c.id : ''}"><input type="hidden" name="reprise" value="${reprise ? '1' : ''}">
+    ${fld('Nom', `<input name="nom" required autocomplete="off" value="${esc(c ? c.nom : '')}" placeholder="Livret A de Jeremy">`)}
+    <div class="duo">${fld('Type', `<select name="type">${optSel(TYPES_EPARGNE, c ? c.type : 'livretA')}</select>`)}${fld('Taux (%, facultatif)', `<input type="number" name="taux" min="0" step="0.01" inputmode="decimal" value="${c && c.taux ? c.taux : ''}">`)}</div>
+    ${fld(reprise ? 'Montant à affecter à ce compte (€)' : 'Solde (€)', `<input type="number" name="solde" step="0.01" required inputmode="decimal" value="${c ? c.solde : reprise ? cfgPat().epargne : ''}">`)}
+    ${reprise ? '<small>Ce montant sera retiré de l’épargne non détaillée.</small>' : ''}
+    ${hist}
+    <button class="btn plein">Enregistrer</button></form>` };
+};
+FORMS.epargne = f => {
+  const o = { nom: f.nom.value.trim(), type: f.type.value, taux: Number(f.taux.value) || 0, solde: Number(f.solde.value) || 0 };
+  etat.epargne = etat.epargne || [];
+  const i = etat.epargne.findIndex(x => x.id === f.id.value);
+  if (i >= 0) {
+    const ecart = o.solde - (etat.epargne[i].solde || 0);
+    if (ecart) (etat.epargne[i].mouvements = etat.epargne[i].mouvements || []).push({ date: aujourdhui(), montant: ecart, ajustement: true });
+    Object.assign(etat.epargne[i], o);
+  } else {
+    etat.epargne.push({ id: uid(), ...o, mouvements: [] });
+    if (f.reprise.value === '1') cfgPat().epargne = Math.max(0, cfgPat().epargne - o.solde);
+  }
+};
+ACTIONS['epargne-del'] = el => { etat.epargne = etat.epargne.filter(x => x.id !== el.dataset.id); };
+ACTIONS['epargne-versement'] = async el => {
+  const c = etat.epargne.find(x => x.id === el.dataset.id);
+  const r = await dialogue({ titre: `Versement : ${c.nom}`, texte: `Solde actuel : ${eur(c.solde || 0)}. Saisissez un montant positif pour un versement, négatif pour un retrait.`, champs: [{ nom: 'm', label: 'Montant (€)', valeur: '' }], ok: 'Enregistrer' });
+  const m = r && Number(String(r.m).replace(',', '.'));
+  if (!m) return false;
+  c.solde = (c.solde || 0) + m;
+  (c.mouvements = c.mouvements || []).push({ date: aujourdhui(), montant: m });
+  info(`${m > 0 ? 'Versement' : 'Retrait'} de ${eur(Math.abs(m))} enregistré.`);
+};

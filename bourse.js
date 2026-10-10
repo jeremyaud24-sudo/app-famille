@@ -9,8 +9,9 @@ const SECTEURS = ['Diversifié', 'Technologie', 'Santé', 'Finance', 'Industrie'
 const ENV_IMPOSABLES = ['CTO', 'Autre'];
 
 function cfg() {
-  etat.pfCfg = { jourPlan: 5, strategie: 'cibles', pfu: 30, versement: 0, rendement: 6, mensuel: 0, annees: 20, depenses: 0, epargne: 0, realise: 0, liquidites: 0, eurusd: 1.1, ...(etat.pfCfg || {}) };
-  return etat.pfCfg;
+  const d = { jourPlan: 5, strategie: 'cibles', pfu: 30, versement: 0, rendement: 6, mensuel: 0, annees: 20, depenses: 0, epargne: 0, realise: 0, liquidites: 0, eurusd: 1.1}, o = etat.pfCfg || (etat.pfCfg = {});
+  for (const k in d) if (o[k] === undefined) o[k] = d[k];
+  return o;
 }
 const somme = (a, f) => a.reduce((s, x) => s + f(x), 0);
 const nb = s => { const v = Number(String(s).replace(',', '.')); return isNaN(v) ? null : v; };

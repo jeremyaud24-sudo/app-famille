@@ -4,8 +4,9 @@
 
 let pretSel = '';
 function cfgPret() {
-  etat.pretCfg = { marche: 0, maj: '', dossier: 1000, garantie: 1500, avenant: 500, anticipe: 0, ...(etat.pretCfg || {}) };
-  return etat.pretCfg;
+  const d = { marche: 0, maj: '', dossier: 1000, garantie: 1500, avenant: 500, anticipe: 0}, o = etat.pretCfg || (etat.pretCfg = {});
+  for (const k in d) if (o[k] === undefined) o[k] = d[k];
+  return o;
 }
 const addMois = (d, m) => {
   const x = new Date(d.getFullYear(), d.getMonth() + m, 1);

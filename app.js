@@ -6,7 +6,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 // ---------- Données ----------
-const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], accueil: {}, sportProfils: [], sportPlan: [], sportSeances: [], sportProg: [] });
+const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], accueil: {}, sportProfils: [], sportPlan: [], sportSeances: [], sportProg: [], epargne: [] });
 let etat = charger();
 
 function charger() {
@@ -145,7 +145,7 @@ const SECTIONS = {
 };
 const NOMS_ONGLETS = { accueil: 'Accueil', agenda: 'Agenda', listes: 'Listes', argent: 'Argent', sport: 'Sport', famille: 'Famille' };
 const AJOUT = { // bouton « + » flottant par vue
-  taches: ['tache', 'Tâche'], agenda: ['event', 'Événement'], bourse: ['pos', 'Ligne'], budget: ['tx', 'Opération'], prets: ['pret', 'Prêt'], recettes: ['recette-form', 'Recette'], suivisport: ['seance', 'Séance'], plansport: ['plan-item', 'Séance prévue'], carnet: ['carnet', 'Fiche'], voyages: ['voyage', 'Voyage'], cadeaux: ['cadeau', 'Idée'], membres: ['membre', 'Membre'],
+  taches: ['tache', 'Tâche'], agenda: ['event', 'Événement'], bourse: ['pos', 'Ligne'], budget: ['tx', 'Opération'], prets: ['pret', 'Prêt'], recettes: ['recette-form', 'Recette'], suivisport: ['seance', 'Séance'], patrimoine: ['epargne', 'Épargne'], plansport: ['plan-item', 'Séance prévue'], carnet: ['carnet', 'Fiche'], voyages: ['voyage', 'Voyage'], cadeaux: ['cadeau', 'Idée'], membres: ['membre', 'Membre'],
 };
 let section = 'accueil';
 const sous = { listes: 'courses', argent: 'bourse', famille: 'membres', sport: 'suivisport' };
@@ -411,7 +411,7 @@ function feuille(titre, corps) {
 const fermerFeuille = () => document.querySelectorAll('.modal').forEach(m => m.remove());
 
 // ---------- Actions ----------
-const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del', 'pret-del', 'recette-del', 'carnet-del', 'cadeau-del', 'voyage-del', 'voy-item-del', 'voy-etape-del', 'voy-dep-del', 'seance-del', 'plan-item-del', 'prog-del', 'prog-del-voy']);
+const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del', 'pret-del', 'recette-del', 'carnet-del', 'cadeau-del', 'voyage-del', 'voy-item-del', 'voy-etape-del', 'voy-dep-del', 'seance-del', 'plan-item-del', 'prog-del', 'prog-del-voy', 'epargne-del']);
 const ACTIONS = {
   'ouvrir': el => { ouvrirFeuille(el.dataset.sheet, el.dataset); return 'vue'; },
   'filtre': el => { filtreT = el.dataset.v; return 'vue'; },
