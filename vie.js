@@ -126,7 +126,7 @@ VUES.voyages = function () {
   return `<div class="chips" role="group" aria-label="Choisir un voyage">${tri.map(x => `<button data-act="voy-sel" data-id="${x.id}" aria-pressed="${x.id === v.id}">${esc(x.nom)}</button>`).join('')}</div>
     <section class="hero hero-voy${v.photo ? ' hero-photo' : ''}" style="${v.photo ? `background-image:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.68)),url('${v.photo}')` : `background:${illuFond(v.destination)}`}">${v.photo ? '' : illuSvg(v.destination)}<p class="hero-lbl">${esc(v.destination || 'Destination à préciser')}</p><p class="hero-val">${fini ? 'Terminé' : jours > 0 ? `J-${jours}` : 'En cours'}</p>
       <p class="hero-sub">${fmtDate(v.debut)} → ${fmtDate(v.fin)} · ${nuits} nuit${pl(nuits)}</p></section>
-    ${carteProgramme(v)}
+    ${carteProgramme(v)}${carteLieux(v)}
     <section class="carte"><div class="carte-tete"><h2>Checklist</h2><span class="pill pri">${faits}/${v.checklist.length}</span></div>
       <form class="ajout" data-form="voy-item"><input name="txt" placeholder="Ajouter un point" aria-label="Nouveau point" required autocomplete="off"><button class="btn" aria-label="Ajouter">${ico('plus', 20)}</button></form>
       <ul class="liste">${v.checklist.map(c => `<li class="rang ${c.fait ? 'fait' : ''}"><label class="rang-main"><input type="checkbox" class="coche" data-act="voy-coche" data-id="${c.id}"${c.fait ? ' checked' : ''}><span class="rang-txt">${esc(c.txt)}</span></label>
@@ -208,8 +208,17 @@ function promptProgramme(vy) {
   const n = nbJoursVoyage(vy), prof = { solo: 'seul : rythme libre, visites, rencontres, restaurants au comptoir, sécurité du soir', couple: 'en couple : balades, points de vue, bons restaurants, moments à deux, un peu de romantisme', famille: 'en famille avec des jeunes enfants : rythme doux, pauses et siestes, activités ludiques, accès poussette si bébé, repas tôt, peu de longs trajets' }[vy.voyageurs || 'famille'];
   const ry = { detente: 'détendu, peu d’activités par jour', equilibre: 'équilibré', actif: 'actif, beaucoup de visites' }[vy.rythme || 'equilibre'];
   return `Tu es un guide de voyage. Propose un programme de ${n} jour${n > 1 ? 's' : ''} à ${vy.destination} pour ${compositionVoyage(vy)}. Profil : ${prof}. Rythme : ${ry}.
-Réponds uniquement avec un objet JSON de la forme : {"jours":[{"jour":1,"titre":"Arrivée et quartier historique","matin":"...","apresmidi":"...","soir":"..."}],"conseils":["..."]}.
-Règles : exactement ${n} entrées dans "jours" ; lieux et activités réels et connus ; regroupe par quartier pour limiter les trajets ; jour 1 allégé (arrivée) et dernier jour adapté au départ ; au plus 25 mots par créneau ; aucune information de prix précise ; 4 à 6 conseils pratiques (saison, transports, réservations à anticiper, vérifier les horaires et jours de fermeture). Écris en français.`;
+Réponds uniquement avec un objet JSON de la forme : {"jours":[{"jour":1,"titre":"Arrivée et quartier historique","matin":"...","apresmidi":"...","soir":"..."}],"lieux":[{"jour":1,"moment":"matin","nom":"Nom du lieu","lat":0.0000,"lng":0.0000}],"conseils":["..."]}.
+Règles : exactement ${n} entrées dans "jours" ; "lieux" liste 2 à 4 lieux précis par jour (monument, quartier, restaurant connu) dans l'ordre de visite, avec "moment" parmi matin, apresmidi, soir et des coordonnées GPS décimales les plus exactes possibles ; lieux et activités réels et connus ; regroupe par quartier pour limiter les trajets ; jour 1 allégé (arrivée) et dernier jour adapté au départ ; au plus 25 mots par créneau ; aucune information de prix précise ; 4 à 6 conseils pratiques (saison, transports, réservations à anticiper, vérifier les horaires et jours de fermeture). Écris en français.`;
+}
+const MOMENTS_V = { matin: 'Matin', apresmidi: 'Après-midi', soir: 'Soir' };
+function lieuxValides(arr, nbJ) {
+  const l = (Array.isArray(arr) ? arr : []).map(x => ({ jour: Math.max(1, Math.min(nbJ, Math.round(Number(x && x.jour)) || 1)), moment: MOMENTS_V[x && x.moment] ? x.moment : 'matin', nom: String(x && x.nom || '').slice(0, 80), lat: Number(x && x.lat), lng: Number(x && x.lng) }))
+    .filter(x => x.nom && Math.abs(x.lat) <= 90 && Math.abs(x.lng) <= 180 && (x.lat || x.lng)).slice(0, 80);
+  if (l.length < 3) return l;
+  const med = k => { const v = l.map(x => x[k]).sort((a, b) => a - b); return v[Math.floor(v.length / 2)]; }, mla = med('lat'), mlo = med('lng');
+  return l.filter(x => Math.abs(x.lat - mla) < 1.2 && Math.abs(x.lng - mlo) < 1.8) // écarte les coordonnées aberrantes (≈ 130 km)
+    .sort((a, b) => a.jour - b.jour || Object.keys(MOMENTS_V).indexOf(a.moment) - Object.keys(MOMENTS_V).indexOf(b.moment));
 }
 async function lancerProg(id) {
   const vy = etat.voyages.find(x => x.id === id);
@@ -226,7 +235,7 @@ async function lancerProg(id) {
     const jours = (Array.isArray(d && d.jours) ? d.jours : []).slice(0, 21).map((j, i) => ({ jour: Math.max(1, Number(j.jour) || i + 1), titre: t(j.titre, 120), matin: t(j.matin, 300), apresmidi: t(j.apresmidi, 300), soir: t(j.soir, 300) }));
     if (!jours.length) throw { code: 'format' };
     const w = etat.voyages.find(x => x.id === id);
-    if (w) { w.programme = { source: 'claude', date: aujourdhui(), jours, conseils: (Array.isArray(d.conseils) ? d.conseils : []).slice(0, 8).map(c => t(c, 300)) }; sauver(); }
+    if (w) { w.programme = { source: 'claude', date: aujourdhui(), jours, lieux: lieuxValides(d.lieux, nbJoursVoyage(w)), conseils: (Array.isArray(d.conseils) ? d.conseils : []).slice(0, 8).map(c => t(c, 300)) }; sauver(); }
     delete progEnCours[id];
   } catch (e) { progEnCours[id] = e && e.code === 'cancelled' ? null : { etat: 'erreur', code: (e && e.code) || 'inconnue' }; if (!progEnCours[id]) delete progEnCours[id]; }
   rendreSiPossible();
@@ -244,6 +253,59 @@ function progGenerique(vy) {
   return { source: 'generique', date: aujourdhui(), jours, conseils: ['Réservez à l’avance les visites très fréquentées.', 'Vérifiez les horaires et les jours de fermeture.', 'Gardez du temps libre : un programme léger se vit mieux.'] };
 }
 const ERR_PROG = { not_granted: 'Autorisation refusée : acceptez l’utilisation de Claude pour obtenir une proposition, ou prenez le programme générique.', rate_limited: 'Trop de demandes en peu de temps. Réessayez dans un moment.', indisponible: 'La génération n’est pas disponible ici. Prenez le programme générique ci-dessous.', format: 'La réponse n’a pas pu être lue. Réessayez.' };
+const COUL_JOUR = ['#0b8f78', '#d9822b', '#4f6bd6', '#c2487a', '#7a5ac8', '#2f9bb5', '#8a9a2b'];
+const coulJour = j => COUL_JOUR[(j - 1) % COUL_JOUR.length];
+const carteSel = {};
+async function lancerCarte(id) {
+  const vy = etat.voyages.find(x => x.id === id);
+  if (!vy || !vy.programme) return;
+  let sample = null;
+  try { sample = window.claude && window.claude.use ? await window.claude.use('sample') : null; } catch { sample = null; }
+  if (!sample) { progEnCours[id] = { etat: 'erreur', code: 'indisponible' }; rendreSiPossible(); return; }
+  progEnCours[id] = { etat: 'carte' }; rendreSiPossible();
+  try {
+    const txt = vy.programme.jours.map(j => `Jour ${j.jour} : ${j.titre}. Matin : ${j.matin} Après-midi : ${j.apresmidi} Soir : ${j.soir}`).join('\n');
+    const d = await sample.json(`Voici un programme de voyage à ${vy.destination} :\n${txt}\nListe les lieux précis cités ou sous-entendus (2 à 4 par jour, dans l'ordre de visite) avec leurs coordonnées GPS décimales les plus exactes possibles. Réponds uniquement avec un objet JSON : {"lieux":[{"jour":1,"moment":"matin","nom":"Nom du lieu","lat":0.0000,"lng":0.0000}]} ; "moment" vaut matin, apresmidi ou soir.`);
+    const lieux = lieuxValides(d && d.lieux, nbJoursVoyage(vy));
+    if (!lieux.length) throw { code: 'format' };
+    const w = etat.voyages.find(x => x.id === id);
+    if (w && w.programme) { w.programme.lieux = lieux; sauver(); }
+    delete progEnCours[id];
+  } catch (e) { progEnCours[id] = { etat: 'erreur', code: (e && e.code) || 'inconnue' }; }
+  rendreSiPossible();
+}
+function carteSvg(lieux, sel, dest) {
+  const W = 360, H = 270, pad = 38, la = lieux.map(x => x.lat), lo = lieux.map(x => x.lng), cl = (Math.min(...la) + Math.max(...la)) / 2, kx = Math.cos(cl * Math.PI / 180);
+  const x0 = Math.min(...lo) * kx, x1 = Math.max(...lo) * kx, y0 = Math.min(...la), y1 = Math.max(...la), sx = Math.max(x1 - x0, 0.012), sy = Math.max(y1 - y0, 0.012);
+  const k = Math.min((W - 2 * pad) / sx, (H - 2 * pad) / sy), ox = (W - sx * k) / 2 - x0 * k, oy = (H + sy * k) / 2 + y0 * k;
+  const P = x => [x.lng * kx * k + ox, oy - x.lat * k];
+  let h = 11; for (const c of sansAccent(dest)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const rnd = () => { h = (h * 1664525 + 1013904223) >>> 0; return h / 4294967296; };
+  const rues = Array.from({ length: 9 }, () => `M${(rnd() * W) | 0} 0L${(rnd() * W) | 0} ${H}`).join('') + Array.from({ length: 6 }, () => `M0 ${(rnd() * H) | 0}L${W} ${(rnd() * H) | 0}`).join('');
+  const parcs = Array.from({ length: 3 }, () => { const cx = rnd() * W, cy = rnd() * H, r = 26 + rnd() * 30; return `<ellipse cx="${cx | 0}" cy="${cy | 0}" rx="${r | 0}" ry="${(r * .6) | 0}" class="cv-parc"/>`; }).join('');
+  const jours = [...new Set(lieux.map(x => x.jour))];
+  const traits = jours.filter(j => !sel || sel === j).map(j => { const pts = lieux.filter(x => x.jour === j).map(P); return pts.length > 1 ? `<path d="M${pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L')}" fill="none" stroke="${coulJour(j)}" stroke-width="${sel ? 3 : 2}" stroke-dasharray="1 6" stroke-linecap="round" opacity=".9"/>` : ''; }).join('');
+  const pins = lieux.map((x, i) => { const [px, py] = P(x), on = !sel || sel === x.jour, lab = sel === x.jour, gauche = px > W * .6;
+    return `<g opacity="${on ? 1 : .28}"><circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="10.5" fill="${coulJour(x.jour)}" stroke="#fff" stroke-width="2.4"/><text x="${px.toFixed(1)}" y="${(py + 4).toFixed(1)}" text-anchor="middle" class="cv-n">${i + 1}</text>${lab ? `<text x="${(px + (gauche ? -17 : 17)).toFixed(1)}" y="${(py + 4).toFixed(1)}" text-anchor="${gauche ? 'end' : 'start'}" class="cv-nom">${esc(x.nom.length > 24 ? x.nom.slice(0, 23) + '…' : x.nom)}</text>` : ''}</g>`; }).join('');
+  const kmPx = 111.2 / k, bar = [0.2, 0.5, 1, 2, 5, 10, 20].find(v => v / kmPx >= 44) || 20;
+  return `<svg class="carte-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Carte schématique des lieux du programme"><rect width="${W}" height="${H}" class="cv-fond"/>${parcs}<path d="${rues}" class="cv-rues"/><path d="M0 ${(H * .92) | 0}Q${W * .3} ${(H * .84) | 0} ${W * .55} ${(H * .93) | 0}T${W} ${(H * .88) | 0}V${H}H0z" class="cv-eau"/>${traits}${pins}
+    <g transform="translate(14 ${H - 16})"><path d="M0 0h${(bar / kmPx).toFixed(0)}M0 -4v8M${(bar / kmPx).toFixed(0)} -4v8" class="cv-echelle"/><text x="${(bar / kmPx + 8).toFixed(0)}" y="4" class="cv-km">${bar < 1 ? bar * 1000 + ' m' : bar + ' km'}</text></g></svg>`;
+}
+function carteLieux(vy) {
+  const p = vy.programme, e = progEnCours[vy.id];
+  if (!p || p.source !== 'claude') return '';
+  if (e && e.etat === 'carte') return `<section class="carte"><h2>Carte</h2><p class="mut">Placement des lieux sur la carte…</p></section>`;
+  const lieux = p.lieux || [];
+  if (!lieux.length) return `<section class="carte"><h2>Carte</h2>${e && e.etat === 'erreur' ? `<p class="mut">${esc(ERR_PROG[e.code] || 'Une erreur est survenue. Réessayez.')}</p>` : '<p class="mut">Placez les lieux du programme sur une carte, jour par jour.</p>'}<button class="btn" data-act="carte-gen" data-id="${vy.id}">Générer la carte</button></section>`;
+  const jours = [...new Set(lieux.map(x => x.jour))], sel = jours.includes(carteSel[vy.id]) ? carteSel[vy.id] : 0;
+  return `<section class="carte"><div class="carte-tete"><h2>Carte</h2><span class="pill pri">${lieux.length} lieux</span></div>
+    <div class="chips" role="group" aria-label="Jour affiché"><button data-act="carte-jour" data-id="${vy.id}" data-j="0" aria-pressed="${!sel}">Tout</button>${jours.map(j => `<button data-act="carte-jour" data-id="${vy.id}" data-j="${j}" aria-pressed="${sel === j}"><i class="pt-j" style="background:${coulJour(j)}"></i>J${j}</button>`).join('')}</div>
+    ${carteSvg(lieux, sel, vy.destination)}
+    <ul class="liste">${lieux.map((x, i) => ({ x, i })).filter(({ x }) => !sel || x.jour === sel).map(({ x, i }) => `<li class="rang" style="min-height:48px"><span class="pt-n" style="background:${coulJour(x.jour)}">${i + 1}</span><span class="rang-txt"><b>${esc(x.nom)}</b><small>Jour ${x.jour} · ${MOMENTS_V[x.moment]}</small></span><a class="lien" target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${x.lat}&mlon=${x.lng}#map=16/${x.lat}/${x.lng}" aria-label="Ouvrir ${esc(x.nom)} sur OpenStreetMap">Plan ↗</a></li>`).join('')}</ul>
+    <small>Carte schématique : positions approximatives données par Claude, sans fond de carte réel. Vérifiez les adresses avant de partir.</small></section>`;
+}
+ACTIONS['carte-gen'] = el => { setTimeout(() => lancerCarte(el.dataset.id), 20); };
+ACTIONS['carte-jour'] = el => { carteSel[el.dataset.id] = Number(el.dataset.j); return 'vue'; };
 function carteProgramme(vy) {
   const e = progEnCours[vy.id], p = vy.programme;
   if (e && e.etat === 'cours') return `<section class="carte"><h2>Programme proposé</h2><p class="mut">Génération du programme pour ${esc(vy.destination)}… (quelques dizaines de secondes)</p><button class="btn sec" data-act="prog-stop" data-id="${vy.id}">Arrêter</button></section>`;

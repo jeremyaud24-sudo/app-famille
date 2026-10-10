@@ -35,7 +35,7 @@ function sparkline(vals, { h = 96, couleur = '--c1', marqueur = null } = {}) {
 }
 // Barres verticales avec pastille sous chaque barre
 function barresV(items, h = 120) {
-  return `<div class="barresv" style="--h:${h}px">${items.map(it => `<div class="bv" title="${esc(it.titre)}"><div class="bv-piste"><i style="height:${Math.max(5, Math.round(it.part * 100))}%;background:${it.couleur || 'var(--acc)'}"></i></div>${it.pastille}</div>`).join('')}</div>`;
+  return `<div class="barresv" style="--h:${h}px">${items.map(it => `<div class="bv" title="${esc(it.titre)}"><div class="bv-piste"><i style="height:${Math.max(5, Math.round(it.part * 100))}%;background:${it.couleur || 'var(--pri)'}"></i></div>${it.pastille}</div>`).join('')}</div>`;
 }
 const pastilleInit = t => `<span class="av neutre" aria-hidden="true">${esc(String(t).slice(0, 2).toUpperCase())}</span>`;
 const videFin = (titre, bouton, sheet) => `<section class="fin-tuile"><span class="t-lbl">${esc(titre)}</span><button class="btn" data-act="ouvrir" data-sheet="${sheet}">${esc(bouton)}</button></section>`;

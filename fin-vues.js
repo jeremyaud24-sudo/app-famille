@@ -42,7 +42,7 @@ VUES.budget = function () {
     ${alertes.length ? `<section class="fin-tuile"><span class="t-lbl">Alertes</span>${alertes.map(([t, tag, cls]) => `<span class="alerte-ligne"><span class="pill ${cls}">${esc(tag)}</span>${esc(t)}</span>`).join('')}</section>` : ''}
     ${cats.length ? `<section class="fin-tuile"><span class="t-lbl">Dépenses par catégorie</span>
       <div class="rep"><div class="rep-leg"><span class="t-bas">Principale dépense</span><b class="t-nom">${esc(cats[0][0])} · ${dep ? Math.round(cats[0][1] / dep * 100) : 0} %</b></div>
-        ${barresV(cats.slice(0, 5).map(([k, v]) => { const p = etat.plafonds[k] || 0; return { part: v / maxCat, titre: `${k} : ${eur(v)}${p ? ' sur ' + eur(p) : ''}`, couleur: p && v > p ? 'var(--bad)' : 'var(--acc)', pastille: `<span class="bv-lbl">${NOM_COURT[k] || k}</span>` }; }), 110)}</div></section>` : ''}
+        ${barresV(cats.slice(0, 5).map(([k, v]) => { const p = etat.plafonds[k] || 0; return { part: v / maxCat, titre: `${k} : ${eur(v)}${p ? ' sur ' + eur(p) : ''}`, couleur: p && v > p ? 'var(--bad)' : 'var(--pri)', pastille: `<span class="bv-lbl">${NOM_COURT[k] || k}</span>` }; }), 110)}</div></section>` : ''}
     ${etat.objectifs.length ? `<section class="fin-tuile"><div class="carte-tete"><span class="t-lbl">Objectifs d’épargne</span><button class="lien" data-act="ouvrir" data-sheet="objectif">Ajouter</button></div>
       ${etat.objectifs.map(o => { const part = o.cible ? Math.min(100, (o.actuel || 0) / o.cible * 100) : 0; return `<div class="obj"><div class="bar"><b>${esc(o.nom)}</b><span class="num">${eur(o.actuel || 0)} <span class="mut">/ ${eur(o.cible)}</span></span></div>
         <div class="jauge"><i style="width:${part}%;background:var(--c1)"></i></div>
@@ -67,7 +67,7 @@ VUES.budget = function () {
 VUES.patrimoine = function () {
   const P = patrimoineCalc(), pat = cfgPat(), hist = dansPeriode(etat.patHisto || [], patPer);
   const dNet = hist.length >= 2 ? hist[hist.length - 1].net - hist[0].net : null;
-  const COUL = ['#6c8cff', '#5ad1a6', '#e8b95b', '#c98aff', '#ff8aa0', '#8fa4a8'];
+  const COUL = ['var(--pri)', '#d9822b', '#4f6bd6', '#c2487a', '#7a5ac8', '#8fa4a8'];
   const acts = P.actifs.slice(0, 5), maxA = Math.max(1, ...acts.map(a => a[1]));
   const comptes = etat.epargne || [], totEp = somme(comptes, x => x.solde || 0);
   const proj = projectionEpargne();
@@ -90,7 +90,7 @@ VUES.patrimoine = function () {
         ${pat.epargne > 0 ? `<li class="rang" style="min-height:48px"><span class="rang-txt"><b>Non détaillée</b></span><b class="num">${eur(pat.epargne)}</b><button class="lien" data-act="ouvrir" data-sheet="epargne" data-reprise="1">Détailler</button></li>` : ''}</ul></section>
     ${proj ? `<section class="fin-tuile"><span class="t-lbl">Épargne projetée</span>
       <div class="proj">${[5, 10, 15].map(y => `<div><small>${y} ans</small><b>${eur(proj.total[y])}</b></div>`).join('')}</div>
-      ${sparkline(proj.total, { h: 90, couleur: '--acc' })}
+      ${sparkline(proj.total, { h: 90, couleur: '--pri' })}
       <details class="fin-det"><summary>Détail et hypothèses</summary>
         <div class="defile"><table class="tab"><tr class="mut"><td>Horizon</td><td>Versé</td><td>Intérêts</td><td>En € actuels</td></tr>${[5, 10, 15].map(y => `<tr><td>${y} ans</td><td>${eur(proj.initial + proj.versements[y])}</td><td style="color:var(--ok)">+${eur(proj.total[y] - proj.initial - proj.versements[y])}</td><td>${eur(proj.total[y] / Math.pow(1 + proj.infl, y))}</td></tr>`).join('')}</table></div>
         <div class="duo" style="padding-top:8px">${fld('Inflation (%)', `<input type="number" step="0.1" min="0" inputmode="decimal" data-pat="inflation" value="${pat.inflation}">`)}${fld('Rendement non détaillé (%)', `<input type="number" step="0.1" min="0" inputmode="decimal" data-pat="epargneTaux" value="${pat.epargneTaux}">`)}</div>
@@ -124,13 +124,13 @@ VUES.prets = function () {
   return `${chips}
     <section class="fin-tuile grand"><span class="t-lbl">Capital restant dû · ${esc(p.nom)}</span>
       <span class="t-ligne"><b class="t-val">${eur(E.crd)}</b><span class="delta ok">${Math.round(pcR)} % remboursé</span></span>
-      ${sparkline(vals, { h: 110, couleur: '--acc', marqueur: Math.floor(E.k / 3) })}</section>
+      ${sparkline(vals, { h: 110, couleur: '--pri', marqueur: Math.floor(E.k / 3) })}</section>
     <div class="fin-grille">
       <section class="fin-tuile"><span class="t-lbl">Mensualité</span><b class="t-val">${eur(E.M + assur)}</b>${assur ? `<span class="t-bas">dont assurance ${eur(assur)}</span>` : '<span class="t-bas">&nbsp;</span>'}</section>
       <section class="fin-tuile"><span class="t-lbl">Fin du prêt</span><b class="t-val cap">${fmtMois(E.fin)}</b><span class="t-bas">${E.restant.length} échéances · ${tx2(p.taux)} %</span></section></div>
     <section class="fin-tuile"><span class="t-lbl">Intérêts</span>
       <div class="rep"><div class="rep-leg"><span class="t-bas">Déjà payés</span><b class="t-nom">${eur(E.interetsPayes)}</b><span class="t-bas" style="margin-top:6px">Restants</span><b class="t-nom">${eur(E.interetsRestants)}</b></div>
-        ${barresV([{ part: partPayes / 100, titre: 'Part déjà payée', couleur: 'var(--acc)', pastille: `<span class="bv-lbl">${Math.round(partPayes)} %</span>` }], 110)}</div></section>
+        ${barresV([{ part: partPayes / 100, titre: 'Part déjà payée', couleur: 'var(--pri)', pastille: `<span class="bv-lbl">${Math.round(partPayes)} %</span>` }], 110)}</div></section>
     <section class="fin-tuile"><span class="t-lbl">Rachat ou renégociation</span>
       ${A ? `<span class="t-ligne"><b class="t-val">${eur(A.best ? A.best.net : 0)}</b><span class="pill ${A.statut[0]}">${A.statut[1]}</span></span>
         <span class="t-bas">Marché ${tx2(c.marche)} % · votre taux ${tx2(p.taux)} %${A.ecart <= 0 ? ' : le vôtre est plus bas' : ''}</span>`
