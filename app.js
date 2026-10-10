@@ -1,7 +1,9 @@
 'use strict';
 
 const CLE = 'app-famille-v1';
-const COULEURS = ['#0b6b5b', '#c2417c', '#b45309', '#2563eb', '#7c3aed', '#be123c', '#0e7490'];
+const COULEURS = ['#0b6b5b', '#c2417c', '#b45309', '#2563eb', '#7c3aed', '#be123c', '#0e7490', '#15803d', '#9333ea', '#c2410c', '#475569', '#a16207'];
+const NOMS_COULEURS = ['Vert sapin', 'Rose', 'Ocre', 'Bleu', 'Violet', 'Grenat', 'Turquoise', 'Vert', 'Pourpre', 'Orange brûlé', 'Gris ardoise', 'Moutarde'];
+const couleurLibre = () => COULEURS.find(c => !etat.membres.some(m => m.couleur === c)) || COULEURS[etat.membres.length % COULEURS.length];
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
@@ -315,7 +317,7 @@ const VUES = {
   membres() {
     return `
       <section class="carte"><h2>Membres</h2><ul class="liste">
-        ${etat.membres.map(m => `<li class="rang">${avatar(m.id, true)}<span class="rang-txt"><b>${esc(m.nom)}</b>${m.naissance ? `<small>Né(e) le ${fmtDate(m.naissance)}</small>` : ''}</span>
+        ${etat.membres.map(m => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="membre" data-id="${m.id}" aria-label="Modifier ${esc(m.nom)}">${avatar(m.id, true)}<span class="rang-txt"><b>${esc(m.nom)}</b>${m.naissance ? `<small>Né(e) le ${fmtDate(m.naissance)}</small>` : ''}</span></button>
           <button class="icone" data-act="membre-del" data-id="${m.id}" aria-label="Supprimer ${esc(m.nom)}">${ico('x', 18)}</button></li>`).join('')
           || `<li class="vide">Ajoutez les membres de la famille.<br><button class="btn sec" data-act="ouvrir" data-sheet="membre">Ajouter un membre</button></li>`}</ul></section>
       ${typeof syncCarte === 'function' ? syncCarte() : ''}
@@ -340,10 +342,15 @@ const SHEETS = {
     <div class="duo">${fld('Pour', `<select name="membre">${optionsMembres('', 'Toute la famille')}</select>`)}
     ${fld('Répéter', `<select name="rec"><option value="">Jamais</option>${Object.entries(REC_NOMS).map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select>`)}</div>
     <button class="btn plein">Ajouter l’événement</button></form>` }),
-  membre: () => ({ titre: 'Nouveau membre', corps: `<form class="formulaire" data-form="membre">
-    ${fld('Prénom', '<input name="nom" required autocomplete="off">')}
-    ${fld('Date de naissance (facultatif)', '<input type="date" name="naissance">')}
-    <button class="btn plein">Ajouter</button></form>` }),
+  membre: d => {
+    const m = d.id ? membre(d.id) : null, coul = m ? m.couleur : couleurLibre();
+    return { titre: m ? 'Modifier le membre' : 'Nouveau membre', corps: `<form class="formulaire" data-form="membre"><input type="hidden" name="id" value="${m ? m.id : ''}">
+    ${fld('Prénom', `<input name="nom" required autocomplete="off" value="${esc(m ? m.nom : '')}">`)}
+    ${fld('Date de naissance (facultatif)', `<input type="date" name="naissance" value="${esc(m ? m.naissance || '' : '')}">`)}
+    <fieldset class="champ" style="border:0;padding:0;margin:0"><legend style="padding:0;margin-bottom:6px">Couleur</legend>
+      <div class="palette" role="radiogroup" aria-label="Couleur du membre">${COULEURS.map((c, k) => { const pris = etat.membres.find(x => x.couleur === c && (!m || x.id !== m.id)); return `<label title="${NOMS_COULEURS[k]}${pris ? ' (utilisée par ' + esc(pris.nom) + ')' : ''}" style="--c:${c}"><input type="radio" name="couleur" value="${c}" aria-label="${NOMS_COULEURS[k]}"${c === coul ? ' checked' : ''}><span></span></label>`; }).join('')}</div></fieldset>
+    <button class="btn plein">${m ? 'Enregistrer' : 'Ajouter'}</button></form>` };
+  },
   tx: d => {
     const t = d.id ? etat.tx.find(x => x.id === d.id) : null, neg = !t || t.montant < 0;
     return { titre: t ? 'Modifier l’opération' : 'Nouvelle opération', corps: `<form class="formulaire" data-form="tx"><input type="hidden" name="id" value="${t ? t.id : ''}">
@@ -525,9 +532,12 @@ const FORMS = {
   },
   objectif: f => etat.objectifs.push({ id: uid(), nom: f.nom.value.trim(), cible: Number(f.cible.value), actuel: Number(f.actuel.value) || 0, date: f.date.value }),
   membre: f => {
-    const m = { id: uid(), nom: f.nom.value.trim(), couleur: COULEURS[etat.membres.length % COULEURS.length], naissance: f.naissance.value };
-    etat.membres.push(m);
-    if (!etat.actif) etat.actif = m.id;
+    const o = { nom: f.nom.value.trim(), naissance: f.naissance.value, couleur: f.couleur.value || couleurLibre() };
+    const m = f.id && f.id.value ? membre(f.id.value) : null;
+    if (m) { Object.assign(m, o); return; }
+    const n = { id: uid(), ...o };
+    etat.membres.push(n);
+    if (!etat.actif) etat.actif = n.id;
   },
 };
 
