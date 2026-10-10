@@ -291,6 +291,11 @@ function carteSvg(lieux, sel, dest) {
   return `<svg class="carte-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Carte schématique des lieux du programme"><rect width="${W}" height="${H}" class="cv-fond"/>${parcs}<path d="${rues}" class="cv-rues"/><path d="M0 ${(H * .92) | 0}Q${W * .3} ${(H * .84) | 0} ${W * .55} ${(H * .93) | 0}T${W} ${(H * .88) | 0}V${H}H0z" class="cv-eau"/>${traits}${pins}
     <g transform="translate(14 ${H - 16})"><path d="M0 0h${(bar / kmPx).toFixed(0)}M0 -4v8M${(bar / kmPx).toFixed(0)} -4v8" class="cv-echelle"/><text x="${(bar / kmPx + 8).toFixed(0)}" y="4" class="cv-km">${bar < 1 ? bar * 1000 + ' m' : bar + ' km'}</text></g></svg>`;
 }
+const gmLieu = (x, dest) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.nom + ', ' + dest)}`;
+function gmJour(l, dest) { // itinéraire Google Maps : jusqu'à 11 arrêts (départ, 9 étapes, arrivée)
+  const a = l.slice(0, 11).map(x => `${x.lat},${x.lng}`);
+  return a.length < 2 ? `https://www.google.com/maps/search/?api=1&query=${a[0]}` : `https://www.google.com/maps/dir/?api=1&travelmode=walking&origin=${a[0]}&destination=${a[a.length - 1]}${a.length > 2 ? '&waypoints=' + encodeURIComponent(a.slice(1, -1).join('|')) : ''}`;
+}
 function carteLieux(vy) {
   const p = vy.programme, e = progEnCours[vy.id];
   if (!p || p.source !== 'claude') return '';
@@ -301,7 +306,8 @@ function carteLieux(vy) {
   return `<section class="carte"><div class="carte-tete"><h2>Carte</h2><span class="pill pri">${lieux.length} lieux</span></div>
     <div class="chips" role="group" aria-label="Jour affiché"><button data-act="carte-jour" data-id="${vy.id}" data-j="0" aria-pressed="${!sel}">Tout</button>${jours.map(j => `<button data-act="carte-jour" data-id="${vy.id}" data-j="${j}" aria-pressed="${sel === j}"><i class="pt-j" style="background:${coulJour(j)}"></i>J${j}</button>`).join('')}</div>
     ${carteSvg(lieux, sel, vy.destination)}
-    <ul class="liste">${lieux.map((x, i) => ({ x, i })).filter(({ x }) => !sel || x.jour === sel).map(({ x, i }) => `<li class="rang" style="min-height:48px"><span class="pt-n" style="background:${coulJour(x.jour)}">${i + 1}</span><span class="rang-txt"><b>${esc(x.nom)}</b><small>Jour ${x.jour} · ${MOMENTS_V[x.moment]}</small></span><a class="lien" target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${x.lat}&mlon=${x.lng}#map=16/${x.lat}/${x.lng}" aria-label="Ouvrir ${esc(x.nom)} sur OpenStreetMap">Plan ↗</a></li>`).join('')}</ul>
+    <ul class="liste">${lieux.map((x, i) => ({ x, i })).filter(({ x }) => !sel || x.jour === sel).map(({ x, i }) => `<li class="rang" style="min-height:48px"><span class="pt-n" style="background:${coulJour(x.jour)}">${i + 1}</span><span class="rang-txt"><b>${esc(x.nom)}</b><small>Jour ${x.jour} · ${MOMENTS_V[x.moment]}</small></span><a class="lien" target="_blank" rel="noopener" href="${esc(gmLieu(x, vy.destination))}" aria-label="Ouvrir ${esc(x.nom)} dans Google Maps">Google Maps ↗</a></li>`).join('')}</ul>
+    <div class="rangee">${jours.filter(j => !sel || j === sel).map(j => `<a class="btn sec" target="_blank" rel="noopener" href="${esc(gmJour(lieux.filter(x => x.jour === j), vy.destination))}"><i class="pt-j" style="background:${coulJour(j)}"></i>Itinéraire J${j} dans Google Maps ↗</a>`).join('')}</div>
     <small>Carte schématique : positions approximatives données par Claude, sans fond de carte réel. Vérifiez les adresses avant de partir.</small></section>`;
 }
 ACTIONS['carte-gen'] = el => { setTimeout(() => lancerCarte(el.dataset.id), 20); };
