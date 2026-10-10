@@ -597,7 +597,7 @@ function dialogue({ titre = '', texte = '', champs = [], ok = 'Valider', annuler
       ${titre ? `<h2>${esc(titre)}</h2>` : ''}${texte ? `<p>${esc(texte)}</p>` : ''}
       ${champs.map((c, i) => c.zone
         ? `<textarea id="dlg${i}" name="${c.nom}" rows="8" ${c.lecture ? 'readonly' : 'required'} aria-label="${esc(c.nom)}">${esc(c.valeur)}</textarea>`
-        : fld(esc(c.label), `<input id="dlg${i}" name="${c.nom}" type="number" step="any" inputmode="decimal" value="${esc(c.valeur ?? '')}" required>`)).join('')}
+        : fld(esc(c.label), `<input id="dlg${i}" name="${c.nom}" type="${c.type || 'number'}" ${c.type ? '' : 'step="any" inputmode="decimal"'} value="${esc(c.valeur ?? '')}" required>`)).join('')}
       <div class="actions">${copie ? '<button type="button" class="btn sec" data-copie>Copier</button>' : ''}${annuler ? '<button type="button" class="btn sec" data-non>Annuler</button>' : ''}<button class="btn">${esc(ok)}</button></div></form>`;
     document.body.appendChild(fond);
     const f = fond.firstElementChild;

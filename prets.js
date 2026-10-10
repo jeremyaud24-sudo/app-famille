@@ -92,7 +92,7 @@ VUES.prets = function () {
   let blocRachat;
   if (!A) blocRachat = `<p class="mut">Renseignez le taux actuellement proposé pour votre durée restante pour estimer une économie.</p>`;
   else {
-    const t = A.best ? { ok: `Un taux de ${tx2(c.marche)} % ferait économiser environ ${eur(A.best.net)} net de frais (${eur(A.best.gainMensuel)} par mois).`, warn: `Gain net estimé : ${eur(A.best.net)}. À étudier avec des devis réels.`, '': 'Les frais ou un écart de taux trop faible mangent le gain.' }[A.statut[0]] : '';
+    const t = A.best ? { ok: `Un taux de ${tx2(c.marche)} % ferait économiser environ ${eur(A.best.net)} net de frais (${eur(A.best.gainMensuel)} par mois).`, warn: `Gain net estimé : ${eur(A.best.net)}. À étudier avec des devis réels.`, '': A.ecart <= 0 ? 'Votre taux est inférieur à celui du marché : un rachat ferait payer plus cher.' : 'Les frais ou un écart de taux trop faible mangent le gain.' }[A.statut[0]] : '';
     blocRachat = `<div class="cons"><span class="pill ${A.statut[0]}">${A.statut[1]}</span><p>${esc(t)} Écart de taux : ${A.ecart.toFixed(2).replace('.', ',')} point${Math.abs(A.ecart) >= 2 ? 's' : ''}.</p></div>
       <div class="defile"><table class="tab"><tr class="mut"><td>Option</td><td>Frais</td><td>Mensualité</td><td>Gain net</td><td>Rentabilisé</td></tr>
         ${lignesTab(A.reneg, 'Renégociation', 'avenant avec votre banque')}${lignesTab(A.rachat, 'Rachat', 'autre banque, indemnité estimée ' + eur(A.ira))}</table></div>`;
