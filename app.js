@@ -6,7 +6,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 // ---------- Données ----------
-const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {} });
+const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [] });
 let etat = charger();
 
 function charger() {
@@ -15,10 +15,34 @@ function charger() {
     return brut ? { ...defaut(), ...JSON.parse(brut) } : defaut();
   } catch { return defaut(); }
 }
-function sauver() {
-  if (typeof majHisto === 'function') majHisto();
+function ecrireLocal() {
   try { localStorage.setItem(CLE, JSON.stringify(etat)); } catch { info('Impossible de sauvegarder les données.'); }
 }
+function sauver() {
+  if (typeof majHisto === 'function') majHisto();
+  if (typeof majPatHisto === 'function') majPatHisto();
+  ecrireLocal();
+  if (typeof syncPousser === 'function') syncPousser();
+}
+// Rendu des mises à jour distantes : on conserve la saisie en cours (valeur, focus, curseur)
+let rendreEnAttente = false;
+function rendreSiPossible() {
+  const a = document.activeElement;
+  let rest = null;
+  if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.closest('main')) {
+    const sel = a.form && a.form.dataset.form ? `[data-form="${a.form.dataset.form}"] [name="${a.name}"]`
+      : a.dataset.repas ? `[data-repas="${a.dataset.repas}"][data-slot="${a.dataset.slot}"]` : null;
+    if (!sel) { rendreEnAttente = true; return; }
+    rest = { sel, value: a.value, s: a.selectionStart, e: a.selectionEnd };
+  }
+  rendreEnAttente = false;
+  rendre();
+  if (rest) {
+    const n = document.querySelector(rest.sel);
+    if (n) { n.value = rest.value; n.focus(); try { n.setSelectionRange(rest.s, rest.e); } catch {} }
+  }
+}
+document.addEventListener('focusout', () => { if (rendreEnAttente) setTimeout(rendreSiPossible, 80); });
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const membre = id => etat.membres.find(m => m.id === id);
@@ -114,7 +138,7 @@ const SECTIONS = {
   accueil: { titre: 'Accueil', vues: ['accueil'] },
   agenda: { titre: 'Agenda', vues: ['agenda'] },
   listes: { titre: 'Listes', vues: ['courses', 'taches', 'repas'], noms: { courses: 'Courses', taches: 'Tâches', repas: 'Repas' } },
-  argent: { titre: 'Argent', vues: ['bourse', 'budget', 'prets'], noms: { bourse: 'Bourse', budget: 'Budget', prets: 'Prêts' } },
+  argent: { titre: 'Argent', vues: ['bourse', 'budget', 'prets', 'patrimoine'], noms: { bourse: 'Bourse', budget: 'Budget', prets: 'Prêts', patrimoine: 'Patrimoine' } },
   famille: { titre: 'Famille', vues: ['famille'] },
 };
 const NOMS_ONGLETS = { accueil: 'Accueil', agenda: 'Agenda', listes: 'Listes', argent: 'Argent', famille: 'Famille' };
@@ -146,7 +170,7 @@ function rendre() {
     `<button data-goto="${s}"${s === section ? ' aria-current="page"' : ''}><span class="pastille">${ico(s)}</span>${NOMS_ONGLETS[s]}</button>`).join('');
   const nav = document.getElementById('sousNav');
   nav.hidden = S.vues.length < 2;
-  nav.innerHTML = S.vues.length < 2 ? '' : `<div class="seg" role="tablist">${S.vues.map(x =>
+  nav.innerHTML = S.vues.length < 2 ? '' : `<div class="seg${S.vues.length > 3 ? ' dense' : ''}" role="tablist">${S.vues.map(x =>
     `<button role="tab" data-goto="${x}" aria-selected="${x === v}">${S.noms[x]}</button>`).join('')}</div>`;
   document.getElementById('btnRech').innerHTML = ico('recherche');
   const sel = document.getElementById('membreActif');
@@ -172,6 +196,7 @@ const VUES = {
       ...aFaire.filter(t => t.echeance && t.echeance <= auj).map(t => [t.titre, t.echeance < auj ? 'En retard' : 'Aujourd’hui', t.echeance < auj ? 'bad' : 'warn', 'taches']),
       ...evenementsDu(demain).map(e => [e.titre, 'Demain' + (e.heure ? ' ' + e.heure : ''), 'pri', 'agenda']),
       ...(typeof pretsAlertes === 'function' ? pretsAlertes() : []),
+      ...(typeof alertesBudget === 'function' ? alertesBudget() : []),
     ];
     return `
       ${etat.membres.length ? '' : `<section class="carte"><h2>Bienvenue</h2><p class="mut">Créez votre foyer pour partager courses, tâches et agenda. Chaque membre a sa couleur.</p><button class="btn" data-act="ouvrir" data-sheet="membre">Ajouter un premier membre</button></section>`}
@@ -274,6 +299,8 @@ const VUES = {
       <div class="carte-tete"><button class="icone" data-act="mois-budget" data-n="-1" aria-label="Mois précédent">‹</button><b class="cap">${MOIS[mo - 1]} ${an}</b><button class="icone" data-act="mois-budget" data-n="1" aria-label="Mois suivant">›</button></div>
       <section class="hero"><p class="hero-lbl">Solde du mois</p><p class="hero-val">${eur(rev - dep)}</p>
         <p class="hero-sub">Revenus ${eur(rev)} · Dépenses ${eur(dep)}</p></section>
+      ${typeof alertesCarte === 'function' ? alertesCarte() : ''}
+      ${typeof bTreso === 'function' ? bTreso() : ''}
       <section class="carte"><h2>Six derniers mois</h2>${grapheBarres('budget6', six, [{ nom: 'Revenus', c: '--c1' }, { nom: 'Dépenses', c: '--c2' }], 'Revenus et dépenses par mois')}</section>
       ${bourse + epargne > 0 ? `<section class="carte"><h2>Patrimoine suivi</h2>
         <div class="kv"><span>Bourse (titres et liquidités)</span><b>${eur(bourse)}</b></div>
@@ -313,6 +340,7 @@ const VUES = {
         ${etat.membres.map(m => `<li class="rang">${avatar(m.id, true)}<span class="rang-txt"><b>${esc(m.nom)}</b>${m.naissance ? `<small>Né(e) le ${fmtDate(m.naissance)}</small>` : ''}</span>
           <button class="icone" data-act="membre-del" data-id="${m.id}" aria-label="Supprimer ${esc(m.nom)}">${ico('x', 18)}</button></li>`).join('')
           || `<li class="vide">Ajoutez les membres de la famille.<br><button class="btn sec" data-act="ouvrir" data-sheet="membre">Ajouter un membre</button></li>`}</ul></section>
+      ${typeof syncCarte === 'function' ? syncCarte() : ''}
       <section class="carte"><h2>Sauvegarde</h2>
         <p class="mut">Les données restent sur cet appareil. Exportez-les pour les conserver ou les copier sur un autre appareil.</p>
         <div class="rangee"><button class="btn" data-act="export">Exporter</button><button class="btn sec" data-act="import-coller">Importer (coller)</button></div>
@@ -534,6 +562,7 @@ document.addEventListener('change', e => {
   } else if (t.dataset.plafond) { etat.plafonds[t.dataset.plafond] = Number(t.value) || 0; sauver(); rendre(); }
   else if (t.dataset.pfcfg) changePf(t);
   else if (t.dataset.pretcfg) changePret(t);
+  else if (t.dataset.treso || t.dataset.pat) changeFin(t);
   else if (t.id === 'importCsv') importerCsv(t.files[0]);
   else if (t.id === 'import') importer(t.files[0]);
 });

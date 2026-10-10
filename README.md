@@ -16,6 +16,9 @@ Application familiale installable (PWA), en français, sans dépendances ni buil
 - **Recherche** : loupe en haut à droite, cherche dans toute l'application.
 - **Récurrence** : tâches et événements répétés, rappels sur l'accueil, opérations de budget récurrentes, objectifs d'épargne, historique du portefeuille, dividendes reçus, lignes en dollars.
 - **Prêts** : échéancier, capital restant dû, intérêts, remboursement anticipé, et alerte rachat/renégociation d'après un taux du marché saisi à la main.
+- **Trésorerie** : prévision du solde sur 45 jours d'après les opérations récurrentes, alertes de plafond et de rythme.
+- **Patrimoine** : actifs, dettes, patrimoine net et son évolution.
+- **Synchronisation** (dans l'artifact Claude) : membres, courses, tâches, agenda et repas partagés entre appareils.
 - **Famille** : membres, dates de naissance, export/import JSON des données.
 
 Les données sont stockées dans le navigateur (`localStorage`). L'export JSON sert de sauvegarde ou pour transférer vers un autre appareil.
