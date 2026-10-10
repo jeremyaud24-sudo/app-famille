@@ -9,6 +9,7 @@ Application familiale installable (PWA), en français, sans dépendances ni buil
 - **Agenda** : calendrier mensuel et événements par jour.
 - **Repas** : planning de la semaine, ajout des plats à la liste de courses.
 - **Budget** : opérations, solde mensuel, plafonds par catégorie, import de relevés bancaires CSV (catégories devinées, doublons ignorés).
+- **Bourse** : suivi du portefeuille (cours saisis à la main), répartitions, conseils automatiques, rééquilibrage, dividendes, frais, fiscalité estimée, simulation long terme.
 - **Famille** : membres, dates de naissance, export/import JSON des données.
 
 Les données sont stockées dans le navigateur (`localStorage`). L'export JSON sert de sauvegarde ou pour transférer vers un autre appareil.

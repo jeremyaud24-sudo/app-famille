@@ -6,7 +6,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 // ---------- Données ----------
-const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {} });
+const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {} });
 let etat = charger();
 
 function charger() {
@@ -314,6 +314,7 @@ document.addEventListener('change', e => {
     etat.repas[k] = { ...etat.repas[k], [t.dataset.slot]: t.value.trim() };
     sauver();
   } else if (t.dataset.plafond) { etat.plafonds[t.dataset.plafond] = Number(t.value) || 0; sauver(); rendre(); }
+  else if (t.dataset.pf || t.dataset.pfcfg) changePf(t);
   else if (t.id === 'importCsv') importerCsv(t.files[0]);
   else if (t.id === 'import') importer(t.files[0]);
 });

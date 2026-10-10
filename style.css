@@ -42,3 +42,9 @@ li.fait .grow{text-decoration:line-through;color:var(--mut)}
 .jauge i{display:block;height:100%}
 .plaf{width:90px;padding:2px 6px;font-size:.8rem}
 .tabs button{font-size:.65rem}
+.tabs{overflow-x:auto}
+.tabs button{flex:0 0 auto;min-width:64px;padding:8px 6px}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.formgrid .btn{grid-column:1/-1}
+details summary{cursor:pointer}
+h3.mut{margin:10px 0 4px;font-size:.8rem;font-weight:600}
