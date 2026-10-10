@@ -77,69 +77,6 @@ function pretsAlertes() {
   return out;
 }
 
-VUES.prets = function () {
-  if (!etat.prets.length) return `<section class="carte"><h2>Vos prêts</h2><p class="mut">Suivez le capital restant dû, les intérêts et la date de fin, et soyez alerté quand un rachat ou une renégociation peut faire baisser le coût.</p>
-    <button class="btn" data-act="ouvrir" data-sheet="pret">Ajouter un prêt</button></section>`;
-  const p = etat.prets.find(x => x.id === pretSel) || etat.prets[0];
-  pretSel = p.id;
-  const E = etatPret(p), c = cfgPret();
-  const chips = etat.prets.length > 1 ? `<div class="chips" role="group" aria-label="Choisir un prêt">${etat.prets.map(x => `<button data-act="pret-sel" data-id="${x.id}" aria-pressed="${x.id === p.id}">${esc(x.nom)}</button>`).join('')}</div>` : '';
-  const actions = `<div class="rangee"><button class="btn sec" data-act="ouvrir" data-sheet="pret" data-id="${p.id}">Modifier</button><button class="btn danger" data-act="pret-del" data-id="${p.id}">Supprimer</button></div>`;
-  if (!E.ok) return `${chips}<section class="carte"><h2>${esc(p.nom)}</h2><p class="mut">Les données ne permettent pas de calculer l’échéancier : la mensualité ne couvre pas les intérêts. Vérifiez le taux, la durée et la mensualité.</p>${actions}</section>`;
-
-  const assur = p.assurance || 0, pcRembourse = Math.min(100, (p.capital - E.crd) / p.capital * 100);
-  const A = analyseRachat(p, E);
-  const lignesTab = (s, nom, desc) => s ? `<tr><td><b>${nom}</b><br><small>${desc}</small></td><td>${eur(s.frais)}</td><td>${eur(s.Mn)}</td><td style="color:var(--${s.net > 0 ? 'ok' : 'bad'})"><b>${eur(s.net)}</b></td><td>${isFinite(s.rentab) ? s.rentab + ' mois' : '—'}</td></tr>` : '';
-  let blocRachat;
-  if (!A) blocRachat = `<p class="mut">Renseignez le taux actuellement proposé pour votre durée restante pour estimer une économie.</p>`;
-  else {
-    const t = A.best ? { ok: `Un taux de ${tx2(c.marche)} % ferait économiser environ ${eur(A.best.net)} net de frais (${eur(A.best.gainMensuel)} par mois).`, warn: `Gain net estimé : ${eur(A.best.net)}. À étudier avec des devis réels.`, '': A.ecart <= 0 ? 'Votre taux est inférieur à celui du marché : un rachat ferait payer plus cher.' : 'Les frais ou un écart de taux trop faible mangent le gain.' }[A.statut[0]] : '';
-    blocRachat = `<div class="cons"><span class="pill ${A.statut[0]}">${A.statut[1]}</span><p>${esc(t)} Écart de taux : ${A.ecart.toFixed(2).replace('.', ',')} point${Math.abs(A.ecart) >= 2 ? 's' : ''}.</p></div>
-      <div class="defile"><table class="tab"><tr class="mut"><td>Option</td><td>Frais</td><td>Mensualité</td><td>Gain net</td><td>Rentabilisé</td></tr>
-        ${lignesTab(A.reneg, 'Renégociation', 'avenant avec votre banque')}${lignesTab(A.rachat, 'Rachat', 'autre banque, indemnité estimée ' + eur(A.ira))}</table></div>`;
-  }
-  const X = Math.min(c.anticipe || 0, E.crd);
-  let anticipe = '';
-  if (X > 0 && E.prochaine) {
-    const np = planDepuis(E.crd - X, p.taux, E.M, E.prochaine.date, E.k + 1);
-    anticipe = `<div class="kv"><span>Intérêts économisés</span><b>${eur(E.interetsRestants - somme(np.lignes, l => l.interets))}</b></div>
-      <div class="kv"><span>Échéances en moins</span><b>${E.restant.length - np.lignes.length}</b></div>
-      <div class="kv"><span>Nouvelle fin</span><b>${np.lignes.length ? fmtMois(np.lignes[np.lignes.length - 1].date) : 'Soldé'}</b></div>`;
-  }
-  const pts = [{ label: p.debut, v: [p.capital, 0] }];
-  let cum = 0;
-  E.lignes.forEach((l, i) => { cum += l.interets; if ((i + 1) % 12 === 0 || i === E.lignes.length - 1) pts.push({ label: l.date, v: [l.crd, cum] }); });
-  const parAn = {};
-  E.lignes.forEach(l => { const y = l.date.slice(0, 4); (parAn[y] = parAn[y] || { i: 0, c: 0, crd: 0 }); parAn[y].i += l.interets; parAn[y].c += l.capital; parAn[y].crd = l.crd; });
-
-  return `${chips}
-    <section class="hero"><p class="hero-lbl">Capital restant dû · ${esc(p.nom)}</p><p class="hero-val">${eur(E.crd)}</p>
-      <div class="jauge" style="background:color-mix(in srgb,var(--pri-ink) 25%,transparent)"><i style="width:${pcRembourse}%;background:var(--pri-ink)"></i></div>
-      <p class="hero-sub">${pc(pcRembourse)} remboursé sur ${eur(p.capital)} · fin ${fmtMois(E.fin)}</p></section>
-    <section class="carte"><h2>Opportunité de rachat</h2>${blocRachat}
-      <details><summary>Hypothèses (taux du marché et frais)</summary><div class="formulaire" style="padding-top:8px">
-        ${fld('Taux proposé aujourd’hui pour votre durée restante (%)', `<input type="number" step="0.01" min="0" inputmode="decimal" data-pretcfg="marche" value="${c.marche || ''}">`)}
-        <small>${c.maj ? `Mis à jour le ${fmtDate(c.maj)}.` : 'Non renseigné.'} Taux négociés observés en octobre 2026 : autour de 3,5 à 3,7 % sur 20 à 25 ans, hors assurance.</small>
-        <div class="duo">${fld('Frais de dossier (€)', `<input type="number" step="50" min="0" inputmode="decimal" data-pretcfg="dossier" value="${c.dossier}">`)}${fld('Garantie et mainlevée (€)', `<input type="number" step="50" min="0" inputmode="decimal" data-pretcfg="garantie" value="${c.garantie}">`)}</div>
-        ${fld('Frais d’avenant de renégociation (€)', `<input type="number" step="50" min="0" inputmode="decimal" data-pretcfg="avenant" value="${c.avenant}">`)}
-        <small>Frais indicatifs à remplacer par ceux d’un devis. L’indemnité de remboursement anticipé est estimée au plus faible de 6 mois d’intérêts et 3 % du capital restant dû (à vérifier dans votre contrat). L’assurance emprunteur n’est pas incluse : la changer peut aussi faire économiser.</small></div></details></section>
-    <section class="carte"><h2>Votre prêt</h2>
-      <div class="kv"><span>Taux</span><b>${tx2(p.taux)} %</b></div>
-      <div class="kv"><span>Mensualité${assur ? ' (hors assurance)' : ''}</span><b>${eur(E.M)}</b></div>
-      ${assur ? `<div class="kv"><span>Assurance</span><b>${eur(assur)}</b></div><div class="kv"><span>Total par mois</span><b>${eur(E.M + assur)}</b></div>` : ''}
-      <div class="kv"><span>Échéances restantes</span><b>${E.restant.length}</b></div>
-      <div class="kv"><span>Prochaine échéance</span><b>${E.prochaine ? fmtDate(E.prochaine.date) : '—'}</b></div>
-      <div class="kv"><span>Intérêts déjà payés</span><b>${eur(E.interetsPayes)}</b></div>
-      <div class="kv"><span>Intérêts restants</span><b>${eur(E.interetsRestants)}</b></div>
-      <div class="kv"><span>Coût total des intérêts</span><b>${eur(E.interetsPayes + E.interetsRestants)}</b></div></section>
-    <section class="carte"><h2>Évolution</h2>${grapheLigne('pret' + p.id, pts, [{ nom: 'Capital restant dû', c: '--c1' }, { nom: 'Intérêts cumulés', c: '--c2', dash: '5 4' }], 'Capital restant dû et intérêts cumulés', fmtMois)}</section>
-    <section class="carte"><h2>Remboursement anticipé</h2><p class="mut">Simulez un versement exceptionnel en gardant la même mensualité : la durée raccourcit.</p>
-      ${fld('Montant remboursé (€)', `<input type="number" step="500" min="0" inputmode="decimal" data-pretcfg="anticipe" value="${c.anticipe || ''}">`)}${anticipe}
-      <small>Des indemnités peuvent s’appliquer selon votre contrat.</small></section>
-    <section class="carte"><h2>Échéancier par année</h2>${vueTable(['Année', 'Intérêts', 'Capital', 'Reste dû'], Object.entries(parAn).map(([y, v]) => [y, eur(v.i), eur(v.c), eur(v.crd)]))}</section>
-    ${actions}`;
-};
-
 SHEETS.pret = d => {
   const p = d.id ? etat.prets.find(x => x.id === d.id) : null, v = (k, def = '') => (p && p[k] != null ? p[k] : def);
   return { titre: p ? 'Modifier le prêt' : 'Ajouter un prêt', corps: `<form class="formulaire" data-form="pret"><input type="hidden" name="id" value="${p ? p.id : ''}">

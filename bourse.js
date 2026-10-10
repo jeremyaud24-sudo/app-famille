@@ -305,41 +305,46 @@ const q6 = n => Number((+n).toFixed(6));
 const r4 = n => Number((+n).toFixed(4));
 const initiales = t => esc(String(t).slice(0, 2).toUpperCase());
 
-function bHistorique() {
-  const PER = [['1m', '1 mois', 30], ['3m', '3 mois', 90], ['tout', 'Tout', 99999]];
-  const lim = iso(ajouteJours(new Date(), -PER.find(p => p[0] === bPer)[2]));
-  const pts = (etat.pfHisto || []).filter(h => h.date >= lim).map(h => ({ label: h.date, v: [h.valeur, h.investi] }));
-  return `<section class="carte"><div class="carte-tete"><h2>Évolution</h2></div>
-    <div class="chips" role="group" aria-label="Période">${PER.map(([k, n]) => `<button data-act="bper" data-v="${k}" aria-pressed="${bPer === k}">${n}</button>`).join('')}</div>
-    ${pts.length >= 2 ? grapheLigne('histo', pts, [{ nom: 'Valeur', c: '--c1' }, { nom: 'Investi', c: '--c2', dash: '5 4' }], 'Valeur et montant investi')
-      : '<p class="vide">L’historique se construit chaque jour où vous mettez à jour vos cours ou ouvrez l’application. Revenez demain pour voir la courbe.</p>'}</section>`;
+let bEnv = '';
+// Portefeuille filtré par enveloppe (PEA, CTO…)
+function pfVue() {
+  const S = pfCalc();
+  if (!bEnv) return S;
+  const ps = S.ps.filter(p => p.enveloppe === bEnv), total = somme(ps, p => p.val), investi = somme(ps, p => p.cout);
+  ps.forEach(p => { p.poids = total ? p.val / total * 100 : 0; });
+  return { ps, total, investi, pl: total - investi };
 }
-
-function bSynthese(S) {
-  const c = cfg(), { ps, total, investi, pl } = S;
-  const trie = [...ps].sort((a, b) => b.val - a.val);
-  const segs = trie.slice(0, 5).map(p => [p.ticker, p.val]);
-  const reste = somme(trie.slice(5), p => p.val);
-  if (reste > 0) segs.push(['Autres', reste]);
+function bSynthese() {
+  const S = pfVue(), full = pfCalc(), c = cfg(), { ps, total, investi, pl } = S;
+  const hist = bEnv ? [] : dansPeriode(etat.pfHisto || [], bPer);
+  let dV = pl, dPc = investi ? pl / investi * 100 : 0;
+  if (hist.length >= 2) {
+    const a = hist[0], z = hist[hist.length - 1], profit = (z.valeur - a.valeur) - (z.investi - a.investi);
+    dV = z.valeur - a.valeur; dPc = a.valeur ? profit / a.valeur * 100 : 0;
+  }
+  const perfSerie = hist.length >= 2 ? hist.map(h => (h.investi ? (h.valeur - h.investi) / h.investi * 100 : 0)) : null;
+  const trie = [...ps].sort((a, b) => b.val - a.val), top = trie.slice(0, 4), reste = trie.slice(4), maxP = Math.max(1, ...trie.map(p => p.poids));
+  const barres = top.map(p => ({ part: p.poids / maxP, titre: `${p.ticker} : ${pc(p.poids)}`, pastille: pastilleInit(p.ticker) }));
+  if (reste.length) barres.push({ part: somme(reste, p => p.poids) / maxP, titre: `Autres : ${pc(somme(reste, p => p.poids))}`, pastille: '<span class="av neutre" aria-hidden="true">···</span>' });
+  const envs = [...new Set(etat.pf.map(p => p.enveloppe))];
   const ordre = { rouge: 0, orange: 1, vert: 2, info: 3 };
-  const cons = conseils(S).sort((a, b) => ordre[a[0]] - ordre[b[0]]);
-  const retenir = cons.filter(x => x[0] !== 'info').slice(0, 3);
-  const etape = proposition(S)[0];
+  const cons = conseils(full).sort((a, b) => ordre[a[0]] - ordre[b[0]]).find(x => x[0] === 'rouge' || x[0] === 'orange');
   const vieux = ps.filter(p => !p.maj || (Date.now() - parse(p.maj)) / 864e5 > 7).length;
   return `
-    <section class="hero"><p class="hero-lbl">Valeur du portefeuille</p><p class="hero-val">${eur(total)}</p>
-      ${pillPl(pl, investi ? pl / investi * 100 : 0)}
-      <p class="hero-sub">Investi ${eur(investi)}${c.liquidites ? ` · Liquidités ${eur(c.liquidites)}` : ''}${c.realise ? ` · Réalisé ${eur(c.realise)}` : ''}</p></section>
-    ${bHistorique()}
-    <section class="carte"><h2>Répartition par ligne</h2>
-      <div class="empile" role="img" aria-label="Répartition par ligne">${segs.map(([k, v], i) => `<i style="flex:${v};background:${COUL_PF[i]}" title="${esc(k)}"></i>`).join('')}</div>
-      <ul class="legende">${segs.map(([k, v], i) => `<li><i style="background:${COUL_PF[i]}"></i>${esc(k)} <b class="num">${pc(total ? v / total * 100 : 0)}</b></li>`).join('')}</ul></section>
-    ${retenir.length ? `<section class="carte"><div class="carte-tete"><h2>À retenir</h2><button class="lien" data-act="btab" data-v="conseils">Tous les conseils</button></div>
-      ${retenir.map(([n, t]) => `<div class="cons"><span class="pill ${SEV[n][0]}">${SEV[n][1]}</span><p>${esc(t)}</p></div>`).join('')}</section>` : ''}
-    ${etape ? `<section class="carte"><div class="carte-tete"><h2>Prochaine étape</h2><button class="lien" data-act="btab" data-v="conseils">Détail</button></div>
-      <p><b>${esc(etape[0])}</b></p><p class="mut">${esc(etape[1])}</p></section>` : ''}
-    ${vieux ? `<button class="carte" data-act="ouvrir" data-sheet="cours" style="text-align:left"><b>${vieux} cours à mettre à jour</b><small>Les analyses sont fiables avec des cours récents. Touchez pour tout mettre à jour d’un coup.</small></button>` : ''}`;
+    <div class="fin-tete">${envs.length > 1 ? `<label class="fin-select"><select data-benv aria-label="Compte">${`<option value="">Tous les comptes</option>` + envs.map(e => `<option${e === bEnv ? ' selected' : ''}>${esc(e)}</option>`).join('')}</select></label>` : '<span class="t-lbl" style="font-size:1.1rem">Portefeuille</span>'}${periodesHtml(bPer, 'bper')}</div>
+    <section class="fin-tuile grand"><span class="t-lbl">Valeur totale</span>
+      <span class="t-ligne"><b class="t-val">${eur(total)}</b>${deltaFin(dV, eur(Math.abs(dV)))}</span>
+      ${hist.length >= 2 ? sparkline(hist.map(h => h.valeur), { h: 110 }) : '<span class="t-bas">La courbe se construit chaque jour d’utilisation.</span>'}</section>
+    <div class="fin-grille">
+      <section class="fin-tuile"><span class="t-lbl">Performance</span><b class="t-val">${pcSigne(dPc)}</b>${perfSerie ? sparkline(perfSerie, { h: 70 }) : ''}</section>
+      <section class="fin-tuile"><span class="t-lbl">Profits et pertes</span><b class="t-val">${eurSigne(pl)}</b>
+        <span class="t-bas">${eur(c.realise || 0)} réalisés<br>${eurSigne(pl)} non réalisés</span></section></div>
+    <section class="fin-tuile"><span class="t-lbl">Répartition des actifs</span>
+      <div class="rep"><div class="rep-leg"><span class="t-bas">Actif le plus détenu</span><b class="t-nom">${esc(trie[0].ticker)} · ${pc(trie[0].poids)}</b></div>${barresV(barres, 110)}</div></section>
+    ${cons ? `<button class="fin-tuile tuile-btn" data-act="btab" data-v="conseils"><span class="t-lbl">Conseil</span><span class="t-bas clamp">${esc(cons[1])}</span></button>` : ''}
+    ${vieux ? `<button class="fin-tuile tuile-btn" data-act="ouvrir" data-sheet="cours"><span class="t-lbl">Cours à mettre à jour</span><span class="t-ligne"><b class="t-nom">${vieux} ligne${pl(vieux)}</b></span></button>` : ''}`;
 }
+document.addEventListener('change', e => { if (e.target.dataset && e.target.dataset.benv !== undefined) { bEnv = e.target.value; rendre(); } });
 
 function bLignes(S) {
   const { ps, total } = S, trie = [...ps].sort((a, b) => b.val - a.val);

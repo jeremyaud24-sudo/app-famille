@@ -184,6 +184,7 @@ function aller(v) {
 
 function rendre() {
   const S = SECTIONS[section], v = vueCourante(), actif = membre(etat.actif);
+  document.body.classList.toggle('fin', section === 'argent');
   document.getElementById('titre').textContent = section === 'accueil' ? `Bonjour${actif ? ', ' + actif.nom : ''}` : S.titre;
   document.getElementById('sousTitre').textContent = section === 'accueil' ? fmtLong(aujourdhui()) : '';
   document.getElementById('tabs').innerHTML = Object.keys(SECTIONS).filter(s => !SECTIONS[s].cache).map(s =>
@@ -273,56 +274,6 @@ const VUES = {
         ${fld('Soir', `<input data-repas="${k}" data-slot="soir" list="dlRecettes" value="${esc(r.soir)}" placeholder="—">`)}</div>`; }).join('')}
       <datalist id="dlRecettes">${etat.recettes.map(x => `<option value="${esc(x.nom)}">`).join('')}</datalist>
       <button class="btn sec plein" data-act="repas-courses">Ajouter les plats de la semaine aux courses</button>`;
-  },
-
-  budget() {
-    const [an, mo] = moisBudget.split('-').map(Number);
-    const tx = etat.tx.filter(t => t.date.startsWith(moisBudget)).sort((a, b) => b.date.localeCompare(a.date));
-    const bilan = ym => { const l = etat.tx.filter(t => t.date.startsWith(ym) && !t.epargne); return [l.filter(t => t.montant > 0).reduce((s, t) => s + t.montant, 0), -l.filter(t => t.montant < 0).reduce((s, t) => s + t.montant, 0)]; };
-    const [rev, dep] = bilan(moisBudget);
-    const parCat = c => -tx.filter(t => t.cat === c && t.montant < 0 && !t.epargne).reduce((s, t) => s + t.montant, 0);
-    const six = Array.from({ length: 6 }, (_, i) => { const d = new Date(an, mo - 1 - (5 - i), 1), ym = iso(d).slice(0, 7), [r, p] = bilan(ym); return { label: `${MOIS[d.getMonth()]} ${d.getFullYear()}`, court: MOIS[d.getMonth()].slice(0, 3), v: [r, p] }; });
-    const pfS = etat.pf.length && typeof pfCalc === 'function' ? pfCalc() : null;
-    const bourse = (pfS ? pfS.total : 0) + (typeof cfg === 'function' ? cfg().liquidites || 0 : 0);
-    const epargne = somme(etat.objectifs, o => o.actuel || 0);
-    return `
-      <div class="carte-tete"><button class="icone" data-act="mois-budget" data-n="-1" aria-label="Mois précédent">‹</button><b class="cap">${MOIS[mo - 1]} ${an}</b><button class="icone" data-act="mois-budget" data-n="1" aria-label="Mois suivant">›</button></div>
-      <section class="hero"><p class="hero-lbl">Solde du mois</p><p class="hero-val">${eur(rev - dep)}</p>
-        <p class="hero-sub">Revenus ${eur(rev)} · Dépenses ${eur(dep)}</p></section>
-      ${typeof alertesCarte === 'function' ? alertesCarte() : ''}
-      ${typeof bTreso === 'function' ? bTreso() : ''}
-      <section class="carte"><h2>Six derniers mois</h2>${grapheBarres('budget6', six, [{ nom: 'Revenus', c: '--c1' }, { nom: 'Dépenses', c: '--c2' }], 'Revenus et dépenses par mois')}</section>
-      ${bourse + epargne > 0 ? `<section class="carte"><h2>Patrimoine suivi</h2>
-        <div class="kv"><span>Bourse (titres et liquidités)</span><b>${eur(bourse)}</b></div>
-        <div class="kv"><span>Épargne (objectifs)</span><b>${eur(epargne)}</b></div>
-        <div class="kv"><span>Total</span><b class="score">${eur(bourse + epargne)}</b></div></section>` : ''}
-      <section class="carte"><div class="carte-tete"><h2>Objectifs d’épargne</h2><button class="lien" data-act="ouvrir" data-sheet="objectif">Ajouter</button></div>
-        ${etat.objectifs.map(o => {
-          const reste = Math.max(0, o.cible - (o.actuel || 0)), pcOk = o.cible ? Math.min(100, (o.actuel || 0) / o.cible * 100) : 0;
-          let mens = '';
-          if (reste > 0 && o.date) { const n = Math.max(1, (parse(o.date).getFullYear() - new Date().getFullYear()) * 12 + parse(o.date).getMonth() - new Date().getMonth()); mens = ` · ${eur(reste / n)} par mois jusqu’en ${MOIS[parse(o.date).getMonth()]} ${parse(o.date).getFullYear()}`; }
-          return `<div><div class="bar"><b>${esc(o.nom)}</b><span class="num">${eur(o.actuel || 0)} / ${eur(o.cible)}</span></div>
-            <div class="jauge"><i style="width:${pcOk}%;background:var(--ok)"></i></div>
-            <small>${reste > 0 ? `Il reste ${eur(reste)}${mens}` : 'Objectif atteint'}</small>
-            <div class="rangee"><button class="btn sec" data-act="obj-versement" data-id="${o.id}">Ajouter un versement</button><button class="btn del" data-act="obj-del" data-id="${o.id}" aria-label="Supprimer ${esc(o.nom)}">Supprimer</button></div></div>`; }).join('')
-          || '<p class="vide">Aucun objectif. Fixez un montant à atteindre (vacances, travaux…).</p>'}</section>
-      <section class="carte"><h2>Par catégorie</h2>
-        ${NOMS_CATS.filter(c => c !== 'Revenus').map(c => { const v = parCat(c), p = etat.plafonds[c] || 0, pc = p ? Math.min(100, v / p * 100) : 0;
-          return `<div><div class="bar"><span>${c}</span><span class="num">${eur(v)}</span></div>
-          ${p ? `<div class="jauge"><i style="width:${pc}%;background:${v > p ? 'var(--bad)' : 'var(--ok)'}"></i></div>` : ''}
-          <div class="bar"><small>Plafond mensuel</small><input type="number" min="0" step="10" class="plaf" data-plafond="${c}" value="${p || ''}" placeholder="€" aria-label="Plafond ${c}"></div></div>`; }).join('')}</section>
-      <section class="carte"><h2>Opérations</h2><ul class="liste">
-        ${tx.map(t => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="tx" data-id="${t.id}" aria-label="Modifier ${esc(t.libelle)}"><span class="rang-txt">${esc(t.libelle)}<small>${fmtDate(t.date)} · ${esc(t.cat)}${t.rec ? ' · automatique' : ''}${t.epargne ? ' · virement vers l’épargne' : ''}</small></span>
-          <b class="num" style="color:${t.epargne ? 'var(--mut)' : t.montant < 0 ? 'var(--bad)' : 'var(--ok)'}">${eur(t.montant)}</b></button>
-          <button class="icone" data-act="tx-del" data-id="${t.id}" aria-label="Supprimer ${esc(t.libelle)}">${ico('x', 18)}</button></li>`).join('') || '<li class="vide">Aucune opération ce mois-ci.</li>'}</ul></section>
-      <section class="carte"><div class="carte-tete"><h2>Opérations automatiques</h2><button class="lien" data-act="ouvrir" data-sheet="recurrent">Ajouter</button></div>
-        <ul class="liste">${etat.recurrents.map(r => `<li class="rang ${r.actif === false ? 'fait' : ''}"><button class="rang-btn" data-act="ouvrir" data-sheet="recurrent" data-id="${r.id}" aria-label="Modifier ${esc(r.libelle)}"><span class="rang-txt">${esc(r.libelle)}<small>Le ${r.jour} de chaque mois · ${esc(r.cat)}${r.actif === false ? ' · suspendue' : ''}</small></span>
-          <b class="num" style="color:var(--${r.montant < 0 ? 'bad' : 'ok'})">${eur(r.montant)}</b></button>
-          <button class="icone" data-act="rec-del" data-id="${r.id}" aria-label="Supprimer ${esc(r.libelle)}">${ico('x', 18)}</button></li>`).join('') || '<li class="vide">Loyer, salaire, abonnements : ajoutez-les une fois, ils s’inscrivent chaque mois.</li>'}</ul>
-        <small>Touchez une ligne pour modifier le montant, le jour ou la catégorie, ou pour la suspendre.</small></section>
-      <section class="carte"><h2>Importer un relevé bancaire (CSV)</h2>
-        <p class="mut">Téléchargez le relevé CSV depuis le site de votre banque (date, libellé, montant ou débit/crédit). Catégories devinées, doublons ignorés.</p>
-        <label class="btn sec">Choisir un fichier CSV<input type="file" id="importCsv" accept=".csv,text/csv,text/plain" hidden></label></section>`;
   },
 
   membres() {
