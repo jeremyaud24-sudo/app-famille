@@ -141,6 +141,36 @@ function prochainInvest(S) {
   out.push(['Taille d\'une nouvelle ligne', `Sur la base de ${eur(base)} : environ ${eur(base * 0.05)} (5 %) pour une première position, ${eur(base * 0.1)} (10 %) au maximum.${base < 1000 ? ' Avec un petit capital, mieux vaut peu de lignes plutôt que de nombreuses positions minuscules, et peu d\'achats si votre courtier prélève des frais fixes.' : ''}`]);
   return out;
 }
+
+// ---------- Proposition d'action chiffrée ----------
+function proposition(S) {
+  const c = cfg(), { ps, total } = S, etapes = [];
+  if (!ps.length) return etapes;
+  const v = c.versement > 0 ? c.versement : 0, base = total + v;
+  const valEtf = somme(ps.filter(p => p.secteur === 'Diversifié'), p => p.val);
+  if (c.depenses > 0 && c.epargne / c.depenses < 3)
+    etapes.push(['Avant tout : épargne de précaution', `Elle couvre moins de 3 mois de dépenses. Complétez-la avant d'ajouter à la Bourse.`]);
+  const gros = ps.filter(p => p.secteur !== 'Diversifié' && p.poids > 25).sort((a, b) => b.poids - a.poids)[0];
+  const besoinEtf = Math.max(0, 0.5 * base - valEtf);
+
+  if (v > 0) {
+    const etf = Math.min(v, besoinEtf), reste = v - etf;
+    if (etf > 0) etapes.push([`Investir ${eur(etf)} dans un ETF large`, `Un ETF monde (indice type MSCI World ou FTSE All-World) porte le socle vers 50 % du portefeuille. Comparez frais, encours et éligibilité PEA/CTO avant d'acheter.`]);
+    if (reste > 0) {
+      const ligne = Math.min(reste, 0.05 * base);
+      etapes.push([`Option : ${eur(ligne)} sur une ligne complémentaire`, `Une entreprise d'un secteur absent de votre portefeuille, choisie avec la grille ci-dessous, sans dépasser 5 % du total. Le reste (${eur(reste - ligne)}) peut aller dans l'ETF.`]);
+    }
+    if (gros) etapes.push([`Ne pas renforcer ${gros.ticker}`, `Elle pèse ${pc(gros.poids)} : les nouveaux versements la diluent d'eux-mêmes (à ${eur(base)} de portefeuille, elle passerait à ${pc(gros.val / base * 100)}) sans aucune vente.`]);
+  } else {
+    if (besoinEtf > 0) etapes.push(['Fixer un versement', `Indiquez un montant dans « Rééquilibrage » : c'est le levier le plus simple. Pour atteindre un socle de 50 %, il faudrait ${eur(besoinEtf)} au total dans un ETF large.`]);
+    if (gros) {
+      const vendre = gros.val - 0.25 * total, gain = gros.pl > 0 ? vendre * gros.pl / gros.val : 0;
+      const imposable = ENV_IMPOSABLES.includes(gros.enveloppe);
+      etapes.push([`Alternative : alléger ${gros.ticker} de ${eur(vendre)}`, `Cela la ramènerait à 25 % du portefeuille, et le montant irait dans un ETF large. ${imposable && gain > 0 ? `Plus-value réalisée estimée : ${eur(gain)}, soit environ ${eur(gain * c.pfu / 100)} d'impôt à ${c.pfu} %.` : 'Pas d\'impôt estimé sur cette vente.'} Inconvénient : vous renoncez à une partie d'un titre qui monte ; avantage : le risque est réparti. Sans vente, vos futurs versements feront le même travail plus lentement.`]);
+    }
+  }
+  return etapes;
+}
 const GRILLE = [
   'Je sais expliquer en deux phrases comment l’entreprise gagne de l’argent.',
   'Son chiffre d’affaires et ses bénéfices progressent sur 5 à 10 ans.',
@@ -212,6 +242,10 @@ VUES.bourse = function () {
         <ul class="list">${GRILLE.map(g => `<li style="align-items:flex-start"><span>☐</span><div class="grow">${esc(g)}</div></li>`).join('')}</ul>
         <p class="mut">Si vous ne pouvez pas cocher la plupart des cases, l'ETF reste souvent le choix le plus sûr.</p></details>
       <p class="mut">L'application ne désigne volontairement aucun titre à acheter : personne ne prédit les cours, et une recommandation individuelle suppose de connaître votre situation. Ces pistes indiquent ce qui manque à votre portefeuille.</p>
+    </div>
+    <div class="card"><h2>🧾 Proposition d'action</h2>
+      <ol style="margin:0;padding-left:20px">${proposition(S).map(([t, d]) => `<li style="margin-bottom:8px"><b>${esc(t)}</b><br><span class="mut">${esc(d)}</span></li>`).join('') || '<li class="mut">Ajoutez vos lignes pour obtenir une proposition.</li>'}</ol>
+      <p class="mut">Proposition calculée à partir de vos données et de règles générales de répartition. Elle illustre une démarche possible, elle ne constitue pas un conseil en investissement personnalisé. Vous restez décisionnaire.</p>
     </div>
     <div class="card"><h2>📊 Répartition</h2>
       ${ps.length ? `<h3 class="mut">Par support</h3>${barres(trie.map(p => [p.ticker, p.val]), total)}
