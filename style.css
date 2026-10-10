@@ -5,6 +5,7 @@
   --pri:#0b6b5b;--pri-ink:#fff;--pri-soft:#d8efe9;
   --ok:#1a7f45;--ok-soft:#dcf2e4;--warn:#8f5400;--warn-soft:#fbecd0;--bad:#b4281f;--bad-soft:#fbe0dd;
   --shade:rgba(10,20,17,.5);
+  --c1:#0b8f78;--c2:#b36b00;
   --ko:var(--bad);--txt:var(--ink);--card:var(--surf);--bd:var(--line);
   --f-disp:'Bricolage Grotesque',system-ui,sans-serif;--f-body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
 }
@@ -12,11 +13,13 @@
   --bg:#0e1613;--surf:#16211d;--surf2:#1f2d28;--ink:#e7f0ec;--mut:#9db1a8;--line:#2b3b35;
   --pri:#4cc2a8;--pri-ink:#06231c;--pri-soft:#1c3a33;
   --ok:#5fd68c;--ok-soft:#173a26;--warn:#f0b254;--warn-soft:#3b2d12;--bad:#ff8a80;--bad-soft:#40201e;
+  --c1:#2fa88e;--c2:#c97f1e;
   --shade:rgba(0,0,0,.62);color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0e1613;--surf:#16211d;--surf2:#1f2d28;--ink:#e7f0ec;--mut:#9db1a8;--line:#2b3b35;
   --pri:#4cc2a8;--pri-ink:#06231c;--pri-soft:#1c3a33;
   --ok:#5fd68c;--ok-soft:#173a26;--warn:#f0b254;--warn-soft:#3b2d12;--bad:#ff8a80;--bad-soft:#40201e;
+  --c1:#2fa88e;--c2:#c97f1e;
   --shade:rgba(0,0,0,.62);color-scheme:dark}
 
 *{box-sizing:border-box}
@@ -176,3 +179,20 @@ details>summary{cursor:pointer;font-weight:650;min-height:40px;display:flex;alig
 .cap{display:inline-block}.cap::first-letter{text-transform:uppercase}
 .seg button[aria-selected="true"]{box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(0,0,0,.12)}
 main{padding-bottom:84px}
+
+.top-outils{display:flex;align-items:center;gap:4px}
+.top-outils .icone{background:var(--surf);border:1px solid var(--line);border-radius:99px;width:42px;height:42px}
+input[type=search]{appearance:none}
+.resultats{min-height:120px}
+.graphe{margin:0;display:flex;flex-direction:column;gap:6px}
+.graphe svg{width:100%;height:auto;overflow:visible;touch-action:pan-y}
+.graphe figcaption{font-size:.82rem;font-weight:600}
+.cle{display:inline-block;width:18px;height:3px;border-radius:2px;flex:0 0 auto}
+.defile{overflow-x:auto}
+.tabledata summary{font-size:.85rem;color:var(--mut);font-weight:600}
+.tip{position:fixed;z-index:40;pointer-events:none;background:var(--ink);color:var(--bg);border-radius:10px;padding:8px 10px;font-size:.8rem;min-width:140px;box-shadow:0 6px 18px rgba(0,0,0,.3)}
+.tip[hidden]{display:none}
+.tip-titre{font-weight:700;margin-bottom:4px}
+.tip-ligne{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.tip-ligne span{flex:1;opacity:.8}
+.tip-ligne b{font-variant-numeric:tabular-nums}

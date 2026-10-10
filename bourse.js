@@ -9,7 +9,7 @@ const SECTEURS = ['Diversifié', 'Technologie', 'Santé', 'Finance', 'Industrie'
 const ENV_IMPOSABLES = ['CTO', 'Autre'];
 
 function cfg() {
-  etat.pfCfg = { pfu: 30, versement: 0, rendement: 6, mensuel: 0, annees: 20, depenses: 0, epargne: 0, realise: 0, ...(etat.pfCfg || {}) };
+  etat.pfCfg = { pfu: 30, versement: 0, rendement: 6, mensuel: 0, annees: 20, depenses: 0, epargne: 0, realise: 0, liquidites: 0, eurusd: 1.1, ...(etat.pfCfg || {}) };
   return etat.pfCfg;
 }
 const somme = (a, f) => a.reduce((s, x) => s + f(x), 0);
@@ -18,10 +18,26 @@ const pc = n => n.toFixed(1).replace('.', ',') + ' %';
 const couleurPl = n => (n >= 0 ? 'var(--ok)' : 'var(--ko)');
 
 function pfCalc() {
-  const ps = etat.pf.map(p => ({ ...p, val: p.qte * p.cours, cout: p.qte * p.pru }));
+  const fxUsd = cfg().eurusd || 1;
+  const ps = etat.pf.map(p => {
+    const fx = p.devise === 'USD' ? fxUsd : 1, coursEur = p.cours / fx, pruEur = p.pru / fx;
+    return { ...p, fx, coursEur, val: p.qte * coursEur, cout: p.qte * pruEur };
+  });
   const total = somme(ps, p => p.val), investi = somme(ps, p => p.cout);
   ps.forEach(p => { p.poids = total ? p.val / total * 100 : 0; p.pl = p.val - p.cout; p.plPct = p.cout ? p.pl / p.cout * 100 : 0; });
   return { ps, total, investi, pl: total - investi };
+}
+const monnaie = (n, dev) => (dev === 'USD' ? n.toLocaleString('fr-FR', { style: 'currency', currency: 'USD' }) : eur(n));
+// Historique : un point par jour, mis à jour à chaque sauvegarde
+function majHisto() {
+  if (!etat.pf || !etat.pf.length) return;
+  const S = pfCalc(), liq = cfg().liquidites || 0, d = aujourdhui();
+  const e = { date: d, valeur: Math.round((S.total + liq) * 100) / 100, investi: Math.round((S.investi + liq) * 100) / 100 };
+  etat.pfHisto = etat.pfHisto || [];
+  const i = etat.pfHisto.findIndex(x => x.date === d);
+  if (i >= 0) etat.pfHisto[i] = e; else etat.pfHisto.push(e);
+  etat.pfHisto.sort((a, b) => a.date.localeCompare(b.date));
+  if (etat.pfHisto.length > 900) etat.pfHisto = etat.pfHisto.slice(-900);
 }
 function groupe(ps, cle) {
   const m = {};
@@ -198,7 +214,7 @@ function rebalancement(S) {
   return `<table class="tab"><tr class="mut"><td>Ligne</td><td>Actuel</td><td>Cible</td><td>Action</td></tr>
     ${lignes.map((l, i) => {
       const mont = c.versement > 0 ? achat[i] : l.delta;
-      const n = l.p.cours ? Math.floor(Math.abs(mont) / l.p.cours) : 0;
+      const n = l.p.coursEur ? Math.floor(Math.abs(mont) / l.p.coursEur) : 0;
       const txt = Math.abs(mont) < 1 ? '—' : `${mont > 0 ? 'Acheter' : 'Vendre'} ${eur(Math.abs(mont))}${n ? ` (~${n} titre${n > 1 ? "s" : ""})` : ''}`;
       return `<tr><td>${esc(l.p.ticker)}</td><td>${pc(l.p.poids)}</td><td>${pc(l.p.cible)}</td><td style="color:${mont > 0 ? 'var(--ok)' : 'var(--ko)'}">${txt}</td></tr>`;
     }).join('')}</table>
@@ -219,7 +235,7 @@ function projection() {
 
 
 // ---------- Interface ----------
-let bTab = 'synthese', bRep = 'type';
+let bTab = 'synthese', bRep = 'type', bPer = '3m';
 const B_TABS = [['synthese', 'Synthèse'], ['lignes', 'Lignes'], ['conseils', 'Conseils'], ['outils', 'Outils']];
 const REP = [['type', 'Type'], ['secteur', 'Secteur'], ['zone', 'Zone'], ['enveloppe', 'Enveloppe']];
 const SEV = { rouge: ['bad', 'Important'], orange: ['warn', 'À surveiller'], vert: ['ok', 'Positif'], info: ['', 'Info'] };
@@ -228,6 +244,16 @@ const pillPl = (n, p) => `<span class="pill ${n >= 0 ? 'ok' : 'bad'}">${n >= 0 ?
 const q6 = n => Number((+n).toFixed(6));
 const r4 = n => Number((+n).toFixed(4));
 const initiales = t => esc(String(t).slice(0, 2).toUpperCase());
+
+function bHistorique() {
+  const PER = [['1m', '1 mois', 30], ['3m', '3 mois', 90], ['tout', 'Tout', 99999]];
+  const lim = iso(ajouteJours(new Date(), -PER.find(p => p[0] === bPer)[2]));
+  const pts = (etat.pfHisto || []).filter(h => h.date >= lim).map(h => ({ label: h.date, v: [h.valeur, h.investi] }));
+  return `<section class="carte"><div class="carte-tete"><h2>Évolution</h2></div>
+    <div class="chips" role="group" aria-label="Période">${PER.map(([k, n]) => `<button data-act="bper" data-v="${k}" aria-pressed="${bPer === k}">${n}</button>`).join('')}</div>
+    ${pts.length >= 2 ? grapheLigne('histo', pts, [{ nom: 'Valeur', c: '--c1' }, { nom: 'Investi', c: '--c2', dash: '5 4' }], 'Valeur et montant investi')
+      : '<p class="vide">L’historique se construit chaque jour où vous mettez à jour vos cours ou ouvrez l’application. Revenez demain pour voir la courbe.</p>'}</section>`;
+}
 
 function bSynthese(S) {
   const c = cfg(), { ps, total, investi, pl } = S;
@@ -243,7 +269,8 @@ function bSynthese(S) {
   return `
     <section class="hero"><p class="hero-lbl">Valeur du portefeuille</p><p class="hero-val">${eur(total)}</p>
       ${pillPl(pl, investi ? pl / investi * 100 : 0)}
-      <p class="hero-sub">Investi ${eur(investi)}${c.realise ? ` · Réalisé ${eur(c.realise)}` : ''}</p></section>
+      <p class="hero-sub">Investi ${eur(investi)}${c.liquidites ? ` · Liquidités ${eur(c.liquidites)}` : ''}${c.realise ? ` · Réalisé ${eur(c.realise)}` : ''}</p></section>
+    ${bHistorique()}
     <section class="carte"><h2>Répartition par ligne</h2>
       <div class="empile" role="img" aria-label="Répartition par ligne">${segs.map(([k, v], i) => `<i style="flex:${v};background:${COUL_PF[i]}" title="${esc(k)}"></i>`).join('')}</div>
       <ul class="legende">${segs.map(([k, v], i) => `<li><i style="background:${COUL_PF[i]}"></i>${esc(k)} <b class="num">${pc(total ? v / total * 100 : 0)}</b></li>`).join('')}</ul></section>
@@ -262,7 +289,7 @@ function bLignes(S) {
     <section class="carte"><ul class="liste">
       ${trie.map(p => `<li><button class="rang" data-act="ouvrir" data-sheet="ligne" data-id="${p.id}" aria-label="${esc(p.ticker)}, détail">
         <span class="av neutre">${initiales(p.ticker)}</span>
-        <span class="rang-txt"><b>${esc(p.ticker)}</b><small>${esc(p.nom || p.type)} · ${pc(p.poids)}</small></span>
+        <span class="rang-txt"><b>${esc(p.ticker)}</b><small>${esc(p.nom || p.type)} · ${pc(p.poids)}${p.devise === 'USD' ? ' · USD' : ''}</small></span>
         <span class="droite"><b class="num">${eur(p.val)}</b><span class="pill ${p.pl >= 0 ? 'ok' : 'bad'}">${p.pl >= 0 ? '▲' : '▼'} ${pc(Math.abs(p.plPct))}</span></span></button></li>`).join('')}
     </ul></section>
     <section class="carte"><h2>Répartition</h2>
@@ -302,11 +329,17 @@ function bOutils(S) {
       <div class="kv"><span>Frais annuels (ETF, fonds)</span><b>${eur(fraisAn)}</b></div>
       <div class="kv"><span>Impôt estimé si vente des plus-values hors PEA/AV/PER</span><b>${eur(imposable * c.pfu / 100)}</b></div>
       <small>Taux utilisé : ${c.pfu} %. À vérifier selon la réglementation en vigueur et votre situation.</small></section>
+    <section class="carte"><div class="carte-tete"><h2>Dividendes reçus</h2><button class="lien" data-act="ouvrir" data-sheet="div">Ajouter</button></div>
+      <div class="kv"><span>Reçus en ${aujourdhui().slice(0, 4)}</span><b>${eur(somme((etat.divs || []).filter(d => d.date.startsWith(aujourdhui().slice(0, 4))), d => d.montant))}</b></div>
+      <div class="kv"><span>Estimés sur 12 mois (selon vos lignes)</span><b>${eur(revenu)}</b></div>
+      <ul class="liste">${[...(etat.divs || [])].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8).map(d => `<li class="rang"><span class="rang-txt"><b>${esc(d.ticker)}</b><small>${fmtDate(d.date)}</small></span><b class="num" style="color:var(--ok)">+${eur(d.montant)}</b>
+        <button class="icone" data-act="div-del" data-id="${d.id}" aria-label="Supprimer ce dividende">${ico('x', 18)}</button></li>`).join('') || '<li class="vide">Enregistrez les dividendes versés pour suivre votre revenu passif.</li>'}</ul></section>
     <section class="carte"><h2>Simulation long terme</h2>
       <div class="duo">${champ('mensuel', 'Versement mensuel (€)', c.mensuel, '10')}${champ('rendement', 'Rendement/an (%)', c.rendement, '0.5')}</div>
       ${champ('annees', 'Durée (ans)', c.annees, '1', 'max="60"')}${projection()}</section>
     <section class="carte"><h2>Paramètres</h2>
       <div class="duo">${champ('depenses', 'Dépenses mensuelles du foyer (€)', c.depenses, '50')}${champ('epargne', 'Épargne de précaution (€)', c.epargne, '100')}</div>
+      <div class="duo">${champ('liquidites', 'Liquidités du compte (€)', c.liquidites, '1')}${champ('eurusd', 'Change : 1 € = … $', c.eurusd, '0.01')}</div>
       ${champ('pfu', 'Taux d’impôt sur plus-values (%)', c.pfu, '0.1')}</section>`;
 }
 
@@ -321,8 +354,8 @@ VUES.bourse = function () {
 // ---------- Feuilles de saisie ----------
 SHEETS.pos = () => ({ titre: 'Ajouter une ligne', corps: `<form class="formulaire" data-form="pos">
   <div class="duo">${fld('Ticker ou nom court', '<input name="ticker" required autocomplete="off" placeholder="CW8">')}${fld('Nom (facultatif)', '<input name="nom" autocomplete="off">')}</div>
-  <div class="duo">${fld('Quantité', '<input type="number" name="qte" step="any" min="0" required inputmode="decimal">')}${fld('Prix de revient (€)', '<input type="number" name="pru" step="any" min="0" required inputmode="decimal">')}</div>
-  ${fld('Cours actuel (€)', '<input type="number" name="cours" step="any" min="0" required inputmode="decimal">')}
+  <div class="duo">${fld('Quantité', '<input type="number" name="qte" step="any" min="0" required inputmode="decimal">')}${fld('Prix de revient', '<input type="number" name="pru" step="any" min="0" required inputmode="decimal">')}</div>
+  <div class="duo">${fld('Cours actuel', '<input type="number" name="cours" step="any" min="0" required inputmode="decimal">')}${fld('Devise', '<select name="devise"><option>EUR</option><option>USD</option></select>')}</div>
   <div class="duo">${fld('Type', `<select name="type">${opts(TYPES_PF)}</select>`)}${fld('Enveloppe', `<select name="enveloppe">${opts(ENVELOPPES)}</select>`)}</div>
   <div class="duo">${fld('Secteur', `<select name="secteur">${opts(SECTEURS)}</select>`)}${fld('Zone', `<select name="zone">${opts(ZONES)}</select>`)}</div>
   <details><summary>Options (dividende, frais, cible)</summary><div class="formulaire" style="padding-top:8px">
@@ -332,7 +365,7 @@ SHEETS.pos = () => ({ titre: 'Ajouter une ligne', corps: `<form class="formulair
 
 SHEETS.cours = () => ({ titre: 'Mettre à jour les cours', corps: `<form class="formulaire" data-form="cours">
   <p class="mut">Saisissez le cours actuel de chaque ligne, en euros.</p>
-  ${etat.pf.map(p => fld(`${esc(p.ticker)}${p.maj ? ` · mis à jour le ${fmtDate(p.maj)}` : ''}`, `<input type="number" name="c_${p.id}" step="any" min="0" value="${r4(p.cours)}" inputmode="decimal" required>`)).join('')}
+  ${etat.pf.map(p => fld(`${esc(p.ticker)}${p.devise === 'USD' ? ' ($)' : ''}${p.maj ? ` · mis à jour le ${fmtDate(p.maj)}` : ''}`, `<input type="number" name="c_${p.id}" step="any" min="0" value="${r4(p.cours)}" inputmode="decimal" required>`)).join('')}
   <button class="btn plein">Enregistrer les cours</button></form>` });
 
 SHEETS.ligne = d => {
@@ -340,22 +373,29 @@ SHEETS.ligne = d => {
   if (!p) return { titre: 'Ligne', corps: '<p>Ligne introuvable.</p>' };
   return { titre: p.ticker, corps: `
     <div><b class="score">${eur(p.val)}</b> ${pillPl(p.pl, p.plPct)}</div>
-    <small>${q6(p.qte)} × ${eur(p.cours)} · PRU ${eur(p.pru)} · ${pc(p.poids)} du portefeuille</small>
+    <small>${q6(p.qte)} × ${monnaie(p.cours, p.devise)} · PRU ${monnaie(p.pru, p.devise)} · ${pc(p.poids)} du portefeuille${p.devise === 'USD' ? ` · valeur convertie à ${cfg().eurusd} $/€` : ''}</small>
     <small>${esc(p.nom ? p.nom + ' · ' : '')}${esc(p.type)} · ${esc(p.enveloppe)} · ${esc(p.secteur)} · ${esc(p.zone)}</small>
     <form class="formulaire" data-form="pos-edit"><input type="hidden" name="id" value="${p.id}">
-      <div class="duo">${fld('Cours actuel (€)', `<input type="number" name="cours" step="any" min="0" value="${r4(p.cours)}" inputmode="decimal" required>`)}${fld('Cible (%)', `<input type="number" name="cible" step="1" min="0" max="100" value="${p.cible || ''}" inputmode="decimal">`)}</div>
+      <div class="duo">${fld(`Cours actuel (${p.devise === 'USD' ? '$' : '€'})`, `<input type="number" name="cours" step="any" min="0" value="${r4(p.cours)}" inputmode="decimal" required>`)}${fld('Cible (%)', `<input type="number" name="cible" step="1" min="0" max="100" value="${p.cible || ''}" inputmode="decimal">`)}</div>
       <div class="duo">${fld('Dividende annuel / titre (€)', `<input type="number" name="div" step="any" min="0" value="${p.div || ''}" inputmode="decimal">`)}${fld('Frais annuels (%)', `<input type="number" name="frais" step="0.01" min="0" value="${p.frais || ''}" inputmode="decimal">`)}</div>
       <button class="btn plein">Enregistrer</button></form>
     <div class="rangee"><button class="btn sec" data-act="pf-achat" data-id="${p.id}">Renforcer</button><button class="btn sec" data-act="pf-vente" data-id="${p.id}">Vendre</button><button class="btn danger" data-act="pf-del" data-id="${p.id}">Supprimer</button></div>` };
 };
 
 // ---------- Actions ----------
+SHEETS.div = () => ({ titre: 'Dividende reçu', corps: `<form class="formulaire" data-form="div">
+  ${fld('Ligne', `<input name="ticker" list="tickers" required autocomplete="off" placeholder="Ticker"><datalist id="tickers">${etat.pf.map(p => `<option value="${esc(p.ticker)}">`).join('')}</datalist>`)}
+  <div class="duo">${fld('Montant net (€)', '<input type="number" name="montant" step="0.01" min="0" required inputmode="decimal">')}${fld('Date', `<input type="date" name="date" value="${aujourdhui()}" required>`)}</div>
+  <button class="btn plein">Enregistrer</button></form>` });
+FORMS.div = f => { (etat.divs = etat.divs || []).push({ id: uid(), date: f.date.value, ticker: f.ticker.value.trim().toUpperCase(), montant: Number(f.montant.value) }); };
+ACTIONS['div-del'] = el => { etat.divs = etat.divs.filter(d => d.id !== el.dataset.id); };
+ACTIONS.bper = el => { bPer = el.dataset.v; return 'vue'; };
 ACTIONS.btab = el => { bTab = el.dataset.v; window.scrollTo(0, 0); return 'vue'; };
 ACTIONS.brep = el => { bRep = el.dataset.v; return 'vue'; };
 ACTIONS['pf-del'] = el => { etat.pf = etat.pf.filter(p => p.id !== el.dataset.id); };
 ACTIONS['pf-achat'] = async el => {
   const p = etat.pf.find(x => x.id === el.dataset.id);
-  const r = await dialogue({ titre: `Renforcer ${p.ticker}`, champs: [{ nom: 'q', label: 'Quantité achetée' }, { nom: 'px', label: 'Prix unitaire (frais inclus)', valeur: p.cours }], ok: 'Enregistrer' });
+  const r = await dialogue({ titre: `Renforcer ${p.ticker}`, champs: [{ nom: 'q', label: 'Quantité achetée' }, { nom: 'px', label: `Prix unitaire (frais inclus, ${p.devise === 'USD' ? '$' : '€'})`, valeur: r4(p.cours) }], ok: 'Enregistrer' });
   const q = r && nb(r.q), px = r && nb(r.px);
   if (!q || q <= 0 || px === null || px < 0) return false;
   p.pru = (p.qte * p.pru + q * px) / (p.qte + q);
@@ -364,18 +404,18 @@ ACTIONS['pf-achat'] = async el => {
 };
 ACTIONS['pf-vente'] = async el => {
   const p = etat.pf.find(x => x.id === el.dataset.id);
-  const r = await dialogue({ titre: `Vendre ${p.ticker}`, texte: `Quantité détenue : ${p.qte}`, champs: [{ nom: 'q', label: 'Quantité vendue' }, { nom: 'px', label: 'Prix de vente unitaire', valeur: p.cours }], ok: 'Enregistrer' });
+  const r = await dialogue({ titre: `Vendre ${p.ticker}`, texte: `Quantité détenue : ${p.qte}`, champs: [{ nom: 'q', label: 'Quantité vendue' }, { nom: 'px', label: `Prix de vente unitaire (${p.devise === 'USD' ? '$' : '€'})`, valeur: r4(p.cours) }], ok: 'Enregistrer' });
   const q = r && nb(r.q), px = r && nb(r.px);
   if (!q || q <= 0 || q > p.qte) { if (r) info(`Quantité invalide (maximum ${p.qte}).`); return false; }
   if (px === null || px < 0) return false;
-  cfg().realise += (px - p.pru) * q;
+  cfg().realise += (px - p.pru) * q / (p.devise === 'USD' ? (cfg().eurusd || 1) : 1);
   p.qte -= q;
   if (p.qte <= 0) etat.pf = etat.pf.filter(x => x.id !== p.id);
   fermerFeuille();
 };
 FORMS.pos = f => etat.pf.push({
   id: uid(), ticker: f.ticker.value.trim().toUpperCase(), nom: f.nom.value.trim(), type: f.type.value, enveloppe: f.enveloppe.value,
-  secteur: f.secteur.value, zone: f.zone.value, qte: Number(f.qte.value), pru: Number(f.pru.value), cours: Number(f.cours.value),
+  secteur: f.secteur.value, zone: f.zone.value, devise: f.devise.value, qte: Number(f.qte.value), pru: Number(f.pru.value), cours: Number(f.cours.value),
   div: Number(f.div.value) || 0, frais: Number(f.frais.value) || 0, cible: Number(f.cible.value) || 0, maj: aujourdhui(),
 });
 FORMS['pos-edit'] = f => {
@@ -393,3 +433,5 @@ function changePf(t) {
   cfg()[t.dataset.pfcfg] = Number(t.value) || 0;
   sauver(); rendre();
 }
+majHisto();
+sauver();

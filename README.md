@@ -13,6 +13,8 @@ Application familiale installable (PWA), en français, sans dépendances ni buil
 - **Repas** : planning de la semaine, ajout des plats à la liste de courses.
 - **Budget** : opérations, solde mensuel, plafonds par catégorie, import de relevés bancaires CSV (catégories devinées, doublons ignorés).
 - **Bourse** : suivi du portefeuille (cours saisis à la main), répartitions, conseils automatiques, rééquilibrage, dividendes, frais, fiscalité estimée, simulation long terme.
+- **Recherche** : loupe en haut à droite, cherche dans toute l'application.
+- **Récurrence** : tâches et événements répétés, rappels sur l'accueil, opérations de budget récurrentes, objectifs d'épargne, historique du portefeuille, dividendes reçus, lignes en dollars.
 - **Famille** : membres, dates de naissance, export/import JSON des données.
 
 Les données sont stockées dans le navigateur (`localStorage`). L'export JSON sert de sauvegarde ou pour transférer vers un autre appareil.

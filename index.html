@@ -14,13 +14,14 @@
 <body>
 <header class="top">
   <div><p class="date" id="sousTitre"></p><h1 id="titre">Accueil</h1></div>
-  <select id="membreActif" title="Membre actif" aria-label="Membre actif"></select>
+  <div class="top-outils"><button class="icone" id="btnRech" data-act="ouvrir" data-sheet="recherche" aria-label="Rechercher"></button><select id="membreActif" title="Membre actif" aria-label="Membre actif"></select></div>
 </header>
 <div class="sous-nav" id="sousNav" hidden></div>
 <main id="vue"></main>
 <div id="fabZone"></div>
 <nav class="tabs" id="tabs" aria-label="Navigation principale"></nav>
 <script src="app.js"></script>
+<script src="graphes.js"></script>
 <script src="bourse.js"></script>
 </body>
 </html>

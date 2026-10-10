@@ -6,7 +6,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 // ---------- Données ----------
-const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {} });
+const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [] });
 let etat = charger();
 
 function charger() {
@@ -16,6 +16,7 @@ function charger() {
   } catch { return defaut(); }
 }
 function sauver() {
+  if (typeof majHisto === 'function') majHisto();
   try { localStorage.setItem(CLE, JSON.stringify(etat)); } catch { info('Impossible de sauvegarder les données.'); }
 }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -36,6 +37,64 @@ const optionsMembres = (sel, vide) =>
   etat.membres.map(m => `<option value="${m.id}"${m.id === sel ? ' selected' : ''}>${esc(m.nom)}</option>`).join('');
 const fld = (label, interieur) => `<label class="champ"><span>${label}</span>${interieur}</label>`;
 const pl = n => (n === 1 ? '' : 's');
+const diffJours = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
+const cle = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+const REC_NOMS = { jour: 'Chaque jour', semaine: 'Chaque semaine', mois: 'Chaque mois', an: 'Chaque année' };
+function prochaine(d, rec) {
+  const x = parse(d);
+  if (rec === 'jour') x.setDate(x.getDate() + 1);
+  else if (rec === 'semaine') x.setDate(x.getDate() + 7);
+  else if (rec === 'mois') x.setMonth(x.getMonth() + 1);
+  else x.setFullYear(x.getFullYear() + 1);
+  return iso(x);
+}
+function arrive(e, d) {
+  if (e.date === d) return true;
+  if (!e.rec || d < e.date) return false;
+  const a = parse(e.date), b = parse(d);
+  if (e.rec === 'jour') return true;
+  if (e.rec === 'semaine') return diffJours(e.date, d) % 7 === 0;
+  if (e.rec === 'mois') return a.getDate() === b.getDate();
+  if (e.rec === 'an') return a.getDate() === b.getDate() && a.getMonth() === b.getMonth();
+  return false;
+}
+const evenementsDu = d => etat.events.filter(e => arrive(e, d)).sort((a, b) => (a.heure || '').localeCompare(b.heure || ''));
+const echeanceTag = t => {
+  if (!t.echeance) return '';
+  if (t.fait) return `<small>${fmtDate(t.echeance)}</small>`;
+  const d = diffJours(aujourdhui(), t.echeance);
+  return d < 0 ? '<span class="pill bad">En retard</span>' : d === 0 ? '<span class="pill warn">Aujourd’hui</span>' : d === 1 ? '<span class="pill pri">Demain</span>' : `<small>${fmtDate(t.echeance)}</small>`;
+};
+// Rayons des courses : mots-clés → rayon
+const RAYONS = {
+  'Fruits & légumes': ['pomme', 'banane', 'orange', 'citron', 'tomate', 'salade', 'carotte', 'courgette', 'oignon', 'ail', 'pomme de terre', 'patate', 'poire', 'fraise', 'avocat', 'concombre', 'poivron', 'champignon', 'legume', 'fruit', 'raisin', 'kiwi', 'brocoli'],
+  'Boulangerie': ['pain', 'baguette', 'croissant', 'brioche', 'viennoiserie'],
+  'Crèmerie': ['lait', 'beurre', 'fromage', 'yaourt', 'yogourt', 'creme', 'oeuf', 'emmental', 'mozzarella', 'gruyere', 'comte'],
+  'Viandes & poissons': ['poulet', 'boeuf', 'steak', 'jambon', 'saucisse', 'lardons', 'poisson', 'saumon', 'thon', 'viande', 'dinde', 'porc', 'crevette'],
+  'Épicerie': ['pates', 'riz', 'farine', 'sucre', 'sel', 'huile', 'cafe', 'the', 'cereale', 'biscuit', 'chocolat', 'confiture', 'conserve', 'sauce', 'semoule', 'lentille', 'miel', 'compote'],
+  'Boissons': ['eau', 'jus', 'soda', 'biere', 'vin', 'cola', 'sirop', 'limonade'],
+  'Surgelés': ['surgele', 'glace', 'pizza', 'frite'],
+  'Hygiène & entretien': ['savon', 'shampoing', 'dentifrice', 'papier', 'lessive', 'liquide vaisselle', 'eponge', 'sac poubelle', 'mouchoir', 'gel douche', 'deodorant', 'couche', 'nettoyant', 'essuie'],
+  'Autre': [],
+};
+const RAYONS_ORDRE = Object.keys(RAYONS);
+const rayonDe = nom => { const k = cle(nom); return RAYONS_ORDRE.find(r => RAYONS[r].some(m => k.includes(m))) || 'Autre'; };
+function parseCourse(t) {
+  t = t.trim();
+  let m = t.match(/^(\d+(?:[.,]\d+)?)\s*(?:x|×)?\s+(.+)$/i);
+  if (m) return [m[2].trim(), Number(m[1].replace(',', '.'))];
+  m = t.match(/^(.+?)\s*(?:x|×)\s*(\d+)$/i);
+  if (m) return [m[1].trim(), Number(m[2])];
+  return [t, 1];
+}
+function ajouterCourse(nom, qte) {
+  const k = cle(nom), ex = etat.courses.find(c => !c.fait && cle(c.nom) === k);
+  const f = etat.freq[k] || { nom, n: 0 };
+  etat.freq[k] = { nom: f.nom, n: f.n + 1 };
+  if (ex) { ex.qte = (ex.qte || 1) + qte; return 'maj'; }
+  etat.courses.unshift({ id: uid(), nom, qte, rayon: rayonDe(nom), fait: false });
+  return 'new';
+}
 
 // ---------- Icônes ----------
 const ICONES = {
@@ -46,6 +105,7 @@ const ICONES = {
   famille: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15.5 14.2c3 0 5.5 2 5.5 5.3"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  recherche: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/>',
 };
 const ico = (n, t = 22) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES[n]}</svg>`;
 
@@ -88,6 +148,7 @@ function rendre() {
   nav.hidden = S.vues.length < 2;
   nav.innerHTML = S.vues.length < 2 ? '' : `<div class="seg" role="tablist">${S.vues.map(x =>
     `<button role="tab" data-goto="${x}" aria-selected="${x === v}">${S.noms[x]}</button>`).join('')}</div>`;
+  document.getElementById('btnRech').innerHTML = ico('recherche');
   const sel = document.getElementById('membreActif');
   sel.innerHTML = optionsMembres(etat.actif, 'Qui êtes-vous ?');
   sel.hidden = !etat.membres.length;
@@ -99,16 +160,22 @@ function rendre() {
 // ---------- Vues ----------
 const VUES = {
   accueil() {
-    const auj = aujourdhui();
-    const evs = etat.events.filter(e => e.date === auj).sort((a, b) => (a.heure || '').localeCompare(b.heure || ''));
+    const auj = aujourdhui(), demain = iso(ajouteJours(parse(auj), 1));
+    const evs = evenementsDu(auj);
     const aFaire = etat.taches.filter(t => !t.fait), aAcheter = etat.courses.filter(c => !c.fait);
     const repas = etat.repas[auj] || {};
-    const prochains = etat.events.filter(e => e.date > auj).sort((a, b) => (a.date + (a.heure || '')).localeCompare(b.date + (b.heure || ''))).slice(0, 3);
+    const prochains = [];
+    for (let i = 1; i <= 30 && prochains.length < 3; i++) { const d = iso(ajouteJours(parse(auj), i)); evenementsDu(d).forEach(e => { if (prochains.length < 3) prochains.push({ ...e, date: d }); }); }
     const anniv = etat.membres.filter(m => m.naissance && m.naissance.slice(5) === auj.slice(5));
     const pf = etat.pf.length && typeof pfCalc === 'function' ? pfCalc() : null;
+    const rappels = [
+      ...aFaire.filter(t => t.echeance && t.echeance <= auj).map(t => [t.titre, t.echeance < auj ? 'En retard' : 'Aujourd’hui', t.echeance < auj ? 'bad' : 'warn', 'taches']),
+      ...evenementsDu(demain).map(e => [e.titre, 'Demain' + (e.heure ? ' ' + e.heure : ''), 'pri', 'agenda']),
+    ];
     return `
       ${etat.membres.length ? '' : `<section class="carte"><h2>Bienvenue</h2><p class="mut">Créez votre foyer pour partager courses, tâches et agenda. Chaque membre a sa couleur.</p><button class="btn" data-act="ouvrir" data-sheet="membre">Ajouter un premier membre</button></section>`}
       ${anniv.map(m => `<section class="carte"><p><b>Joyeux anniversaire ${esc(m.nom)} !</b></p></section>`).join('')}
+      ${rappels.length ? `<section class="carte"><h2>À ne pas oublier</h2><ul class="liste">${rappels.map(([t, tag, cls, v]) => `<li><button class="rang" data-goto="${v}"><span class="rang-txt">${esc(t)}</span><span class="pill ${cls}">${esc(tag)}</span></button></li>`).join('')}</ul></section>` : ''}
       <section class="carte"><div class="carte-tete"><h2>Aujourd’hui</h2><button class="lien" data-goto="agenda">Agenda</button></div>
         ${evs.length ? `<ul class="liste">${evs.map(e => `<li class="rang"><span class="heure">${esc(e.heure || '—')}</span><span class="rang-txt">${esc(e.titre)}</span>${avatar(e.membre)}</li>`).join('')}</ul>`
           : `<p class="vide">Journée libre.<br><button class="btn sec" data-act="ouvrir" data-sheet="event">Ajouter un événement</button></p>`}
@@ -125,26 +192,31 @@ const VUES = {
 
   courses() {
     const aAcheter = etat.courses.filter(c => !c.fait), panier = etat.courses.filter(c => c.fait);
+    const dans = new Set(aAcheter.map(c => cle(c.nom)));
+    const hab = Object.entries(etat.freq).filter(([k, v]) => v.n >= 2 && !dans.has(k)).sort((a, b) => b[1].n - a[1].n).slice(0, 8);
+    const parRayon = RAYONS_ORDRE.map(r => [r, aAcheter.filter(c => (c.rayon || rayonDe(c.nom)) === r)]).filter(([, l]) => l.length);
     const ligne = c => `<li class="rang ${c.fait ? 'fait' : ''}"><label class="rang-main"><input type="checkbox" class="coche" data-act="course-fait" data-id="${c.id}"${c.fait ? ' checked' : ''}><span class="rang-txt">${esc(c.nom)}</span></label>
+      ${c.qte > 1 ? `<span class="pill pri">×${c.qte}</span>` : ''}
       <button class="icone" data-act="course-del" data-id="${c.id}" aria-label="Supprimer ${esc(c.nom)}">${ico('x', 18)}</button></li>`;
     return `
-      <form class="ajout" data-form="course"><input type="text" name="nom" placeholder="Ajouter un article" aria-label="Nouvel article" required autocomplete="off" enterkeyhint="done"><button class="btn" aria-label="Ajouter">${ico('plus', 20)}</button></form>
+      <form class="ajout" data-form="course"><input type="text" name="nom" placeholder="Ajouter (ex. 2 yaourts)" aria-label="Nouvel article" required autocomplete="off" enterkeyhint="done"><button class="btn" aria-label="Ajouter">${ico('plus', 20)}</button></form>
+      ${hab.length ? `<div class="chips" role="group" aria-label="Articles habituels">${hab.map(([k, v]) => `<button data-act="course-hab" data-k="${esc(k)}">+ ${esc(v.nom)}</button>`).join('')}</div>` : ''}
       <section class="carte"><div class="carte-tete"><h2>À acheter</h2><span class="pill pri">${aAcheter.length}</span></div>
-        <ul class="liste">${aAcheter.map(ligne).join('') || '<li class="vide">Rien à acheter. Ajoutez un article ci-dessus.</li>'}</ul></section>
+        ${parRayon.map(([r, l]) => `<h3>${r}</h3><ul class="liste">${l.map(ligne).join('')}</ul>`).join('') || '<p class="vide">Rien à acheter. Ajoutez un article ci-dessus.</p>'}</section>
       ${panier.length ? `<section class="carte"><div class="carte-tete"><h2>Dans le panier</h2><button class="lien" data-act="course-vider">Vider</button></div>
         <ul class="liste">${panier.map(ligne).join('')}</ul></section>` : ''}`;
   },
 
   taches() {
     const scores = etat.membres.map(m => ({ m, pts: etat.taches.filter(t => t.fait && t.par === m.id).reduce((s, t) => s + (t.points || 0), 0) })).sort((a, b) => b.pts - a.pts);
-    const liste = etat.taches.filter(t => !filtreT || t.membre === filtreT || (!t.membre && filtreT === '*')).sort((a, b) => a.fait - b.fait);
+    const liste = etat.taches.filter(t => !filtreT || t.membre === filtreT).sort((a, b) => (a.fait - b.fait) || (a.echeance || '9').localeCompare(b.echeance || '9'));
     return `
       ${etat.membres.length ? `<div class="chips" role="group" aria-label="Filtrer par personne">
         <button data-act="filtre" data-v="" aria-pressed="${!filtreT}">Tout le monde</button>
         ${etat.membres.map(m => `<button data-act="filtre" data-v="${m.id}" aria-pressed="${filtreT === m.id}">${esc(m.nom)}</button>`).join('')}</div>` : ''}
       <section class="carte"><ul class="liste">
         ${liste.map(t => `<li class="rang ${t.fait ? 'fait' : ''}"><label class="rang-main"><input type="checkbox" class="coche" data-act="tache-fait" data-id="${t.id}"${t.fait ? ' checked' : ''}>
-          <span class="rang-txt">${esc(t.titre)}${t.points ? `<small>+${t.points} point${pl(t.points)}</small>` : ''}</span></label>${avatar(t.membre)}
+          <span class="rang-txt">${esc(t.titre)}<small>${[t.points ? `+${t.points} point${pl(t.points)}` : '', t.rec ? '↻ ' + REC_NOMS[t.rec].toLowerCase() : ''].filter(Boolean).join(' · ')}</small></span></label>${echeanceTag(t)}${avatar(t.membre)}
           <button class="icone" data-act="tache-del" data-id="${t.id}" aria-label="Supprimer ${esc(t.titre)}">${ico('x', 18)}</button></li>`).join('')
           || `<li class="vide">Aucune tâche.<br><button class="btn sec" data-act="ouvrir" data-sheet="tache">Ajouter une tâche</button></li>`}
       </ul></section>
@@ -158,11 +230,11 @@ const VUES = {
     const decal = (new Date(an, mo, 1).getDay() + 6) % 7, nbJ = new Date(an, mo + 1, 0).getDate();
     const cases = Array.from({ length: decal }, () => '<div></div>');
     for (let j = 1; j <= nbJ; j++) {
-      const d = `${an}-${pad(mo + 1)}-${pad(j)}`, evs = etat.events.filter(e => e.date === d);
+      const d = `${an}-${pad(mo + 1)}-${pad(j)}`, evs = evenementsDu(d);
       cases.push(`<button class="jour${d === jourSel ? ' sel' : ''}${d === aujourdhui() ? ' auj' : ''}" data-act="jour" data-date="${d}" aria-label="${fmtDate(d)}${evs.length ? ', ' + evs.length + ' événement' + pl(evs.length) : ''}" aria-pressed="${d === jourSel}">${j}
         <span class="pts">${evs.slice(0, 3).map(e => `<b style="background:${membre(e.membre)?.couleur || 'var(--pri)'}"></b>`).join('')}</span></button>`);
     }
-    const evs = etat.events.filter(e => e.date === jourSel).sort((a, b) => (a.heure || '').localeCompare(b.heure || ''));
+    const evs = evenementsDu(jourSel);
     return `
       <section class="carte">
         <div class="carte-tete"><button class="icone" data-act="mois" data-n="-1" aria-label="Mois précédent">‹</button><h2 class="cap">${MOIS[mo]} ${an}</h2><button class="icone" data-act="mois" data-n="1" aria-label="Mois suivant">›</button></div>
@@ -170,7 +242,7 @@ const VUES = {
         <button class="lien" data-act="aujourdhui" style="align-self:center">Revenir à aujourd’hui</button>
       </section>
       <section class="carte"><h2 class="cap">${fmtLong(jourSel)}</h2>
-        <ul class="liste">${evs.map(e => `<li class="rang"><span class="heure">${esc(e.heure || '—')}</span><span class="rang-txt">${esc(e.titre)}</span>${avatar(e.membre)}
+        <ul class="liste">${evs.map(e => `<li class="rang"><span class="heure">${esc(e.heure || '—')}</span><span class="rang-txt">${esc(e.titre)}${e.rec ? `<small>↻ ${REC_NOMS[e.rec].toLowerCase()}</small>` : ''}</span>${avatar(e.membre)}
           <button class="icone" data-act="event-del" data-id="${e.id}" aria-label="Supprimer ${esc(e.titre)}">${ico('x', 18)}</button></li>`).join('')
           || '<li class="vide">Aucun événement ce jour-là.</li>'}</ul></section>`;
   },
@@ -190,22 +262,45 @@ const VUES = {
   budget() {
     const [an, mo] = moisBudget.split('-').map(Number);
     const tx = etat.tx.filter(t => t.date.startsWith(moisBudget)).sort((a, b) => b.date.localeCompare(a.date));
-    const rev = tx.filter(t => t.montant > 0).reduce((s, t) => s + t.montant, 0);
-    const dep = -tx.filter(t => t.montant < 0).reduce((s, t) => s + t.montant, 0);
+    const bilan = ym => { const l = etat.tx.filter(t => t.date.startsWith(ym)); return [l.filter(t => t.montant > 0).reduce((s, t) => s + t.montant, 0), -l.filter(t => t.montant < 0).reduce((s, t) => s + t.montant, 0)]; };
+    const [rev, dep] = bilan(moisBudget);
     const parCat = c => -tx.filter(t => t.cat === c && t.montant < 0).reduce((s, t) => s + t.montant, 0);
+    const six = Array.from({ length: 6 }, (_, i) => { const d = new Date(an, mo - 1 - (5 - i), 1), ym = iso(d).slice(0, 7), [r, p] = bilan(ym); return { label: `${MOIS[d.getMonth()]} ${d.getFullYear()}`, court: MOIS[d.getMonth()].slice(0, 3), v: [r, p] }; });
+    const pfS = etat.pf.length && typeof pfCalc === 'function' ? pfCalc() : null;
+    const bourse = (pfS ? pfS.total : 0) + (typeof cfg === 'function' ? cfg().liquidites || 0 : 0);
+    const epargne = somme(etat.objectifs, o => o.actuel || 0);
     return `
       <div class="carte-tete"><button class="icone" data-act="mois-budget" data-n="-1" aria-label="Mois précédent">‹</button><b class="cap">${MOIS[mo - 1]} ${an}</b><button class="icone" data-act="mois-budget" data-n="1" aria-label="Mois suivant">›</button></div>
       <section class="hero"><p class="hero-lbl">Solde du mois</p><p class="hero-val">${eur(rev - dep)}</p>
         <p class="hero-sub">Revenus ${eur(rev)} · Dépenses ${eur(dep)}</p></section>
+      <section class="carte"><h2>Six derniers mois</h2>${grapheBarres('budget6', six, [{ nom: 'Revenus', c: '--c1' }, { nom: 'Dépenses', c: '--c2' }], 'Revenus et dépenses par mois')}</section>
+      ${bourse + epargne > 0 ? `<section class="carte"><h2>Patrimoine suivi</h2>
+        <div class="kv"><span>Bourse (titres et liquidités)</span><b>${eur(bourse)}</b></div>
+        <div class="kv"><span>Épargne (objectifs)</span><b>${eur(epargne)}</b></div>
+        <div class="kv"><span>Total</span><b class="score">${eur(bourse + epargne)}</b></div></section>` : ''}
+      <section class="carte"><div class="carte-tete"><h2>Objectifs d’épargne</h2><button class="lien" data-act="ouvrir" data-sheet="objectif">Ajouter</button></div>
+        ${etat.objectifs.map(o => {
+          const reste = Math.max(0, o.cible - (o.actuel || 0)), pcOk = o.cible ? Math.min(100, (o.actuel || 0) / o.cible * 100) : 0;
+          let mens = '';
+          if (reste > 0 && o.date) { const n = Math.max(1, (parse(o.date).getFullYear() - new Date().getFullYear()) * 12 + parse(o.date).getMonth() - new Date().getMonth()); mens = ` · ${eur(reste / n)} par mois jusqu’en ${MOIS[parse(o.date).getMonth()]} ${parse(o.date).getFullYear()}`; }
+          return `<div><div class="bar"><b>${esc(o.nom)}</b><span class="num">${eur(o.actuel || 0)} / ${eur(o.cible)}</span></div>
+            <div class="jauge"><i style="width:${pcOk}%;background:var(--ok)"></i></div>
+            <small>${reste > 0 ? `Il reste ${eur(reste)}${mens}` : 'Objectif atteint'}</small>
+            <div class="rangee"><button class="btn sec" data-act="obj-versement" data-id="${o.id}">Ajouter un versement</button><button class="btn del" data-act="obj-del" data-id="${o.id}" aria-label="Supprimer ${esc(o.nom)}">Supprimer</button></div></div>`; }).join('')
+          || '<p class="vide">Aucun objectif. Fixez un montant à atteindre (vacances, travaux…).</p>'}</section>
       <section class="carte"><h2>Par catégorie</h2>
         ${NOMS_CATS.filter(c => c !== 'Revenus').map(c => { const v = parCat(c), p = etat.plafonds[c] || 0, pc = p ? Math.min(100, v / p * 100) : 0;
           return `<div><div class="bar"><span>${c}</span><span class="num">${eur(v)}</span></div>
           ${p ? `<div class="jauge"><i style="width:${pc}%;background:${v > p ? 'var(--bad)' : 'var(--ok)'}"></i></div>` : ''}
           <div class="bar"><small>Plafond mensuel</small><input type="number" min="0" step="10" class="plaf" data-plafond="${c}" value="${p || ''}" placeholder="€" aria-label="Plafond ${c}"></div></div>`; }).join('')}</section>
       <section class="carte"><h2>Opérations</h2><ul class="liste">
-        ${tx.map(t => `<li class="rang"><span class="rang-txt">${esc(t.libelle)}<small>${fmtDate(t.date)} · ${esc(t.cat)}</small></span>
+        ${tx.map(t => `<li class="rang"><span class="rang-txt">${esc(t.libelle)}<small>${fmtDate(t.date)} · ${esc(t.cat)}${t.rec ? ' · récurrente' : ''}</small></span>
           <b class="num" style="color:var(--${t.montant < 0 ? 'bad' : 'ok'})">${eur(t.montant)}</b>
           <button class="icone" data-act="tx-del" data-id="${t.id}" aria-label="Supprimer ${esc(t.libelle)}">${ico('x', 18)}</button></li>`).join('') || '<li class="vide">Aucune opération ce mois-ci.</li>'}</ul></section>
+      <section class="carte"><div class="carte-tete"><h2>Opérations récurrentes</h2><button class="lien" data-act="ouvrir" data-sheet="recurrent">Ajouter</button></div>
+        <ul class="liste">${etat.recurrents.map(r => `<li class="rang"><span class="rang-txt">${esc(r.libelle)}<small>Le ${r.jour} de chaque mois · ${esc(r.cat)}</small></span>
+          <b class="num" style="color:var(--${r.montant < 0 ? 'bad' : 'ok'})">${eur(r.montant)}</b>
+          <button class="icone" data-act="rec-del" data-id="${r.id}" aria-label="Supprimer ${esc(r.libelle)}">${ico('x', 18)}</button></li>`).join('') || '<li class="vide">Loyer, salaire, abonnements : ajoutez-les une fois, ils s’inscrivent chaque mois.</li>'}</ul></section>
       <section class="carte"><h2>Importer un relevé bancaire (CSV)</h2>
         <p class="mut">Téléchargez le relevé CSV depuis le site de votre banque (date, libellé, montant ou débit/crédit). Catégories devinées, doublons ignorés.</p>
         <label class="btn sec">Choisir un fichier CSV<input type="file" id="importCsv" accept=".csv,text/csv,text/plain" hidden></label></section>`;
@@ -230,11 +325,13 @@ const SHEETS = {
     ${fld('Tâche', '<input name="titre" required autocomplete="off" placeholder="Sortir les poubelles">')}
     <div class="duo">${fld('Pour', `<select name="membre">${optionsMembres(etat.actif, 'Tout le monde')}</select>`)}
     ${fld('Points', '<input type="number" name="points" min="0" max="100" value="1" inputmode="numeric">')}</div>
+    <div class="duo">${fld('Échéance (facultatif)', '<input type="date" name="echeance">')}${fld('Répéter', `<select name="rec"><option value="">Jamais</option>${Object.entries(REC_NOMS).map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select>`)}</div>
     <button class="btn plein">Ajouter la tâche</button></form>` }),
   event: () => ({ titre: 'Nouvel événement', corps: `<form class="formulaire" data-form="event">
     ${fld('Titre', '<input name="titre" required autocomplete="off" placeholder="Rendez-vous dentiste">')}
     <div class="duo">${fld('Date', `<input type="date" name="date" value="${jourSel}" required>`)}${fld('Heure', '<input type="time" name="heure">')}</div>
-    ${fld('Pour', `<select name="membre">${optionsMembres('', 'Toute la famille')}</select>`)}
+    <div class="duo">${fld('Pour', `<select name="membre">${optionsMembres('', 'Toute la famille')}</select>`)}
+    ${fld('Répéter', `<select name="rec"><option value="">Jamais</option>${Object.entries(REC_NOMS).map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select>`)}</div>
     <button class="btn plein">Ajouter l’événement</button></form>` }),
   membre: () => ({ titre: 'Nouveau membre', corps: `<form class="formulaire" data-form="membre">
     ${fld('Prénom', '<input name="nom" required autocomplete="off">')}
@@ -245,9 +342,46 @@ const SHEETS = {
     ${fld('Libellé', '<input name="libelle" required autocomplete="off">')}
     <div class="duo">${fld('Montant (€)', '<input type="number" name="montant" step="0.01" min="0" required inputmode="decimal">')}
     ${fld('Date', `<input type="date" name="date" value="${moisBudget === aujourdhui().slice(0, 7) ? aujourdhui() : moisBudget + '-01'}" required>`)}</div>
-    ${fld('Catégorie', `<select name="cat">${NOMS_CATS.filter(c => c !== 'Revenus').map(c => `<option>${c}</option>`).join('')}</select>`)}
+    ${fld('Catégorie', `<select name="cat"><option value="">Automatique</option>${NOMS_CATS.filter(c => c !== 'Revenus').map(c => `<option>${c}</option>`).join('')}</select>`)}
     <button class="btn plein">Ajouter</button></form>` }),
 };
+SHEETS.recurrent = () => ({ titre: 'Opération récurrente', corps: `<form class="formulaire" data-form="recurrent">
+  <div class="choix" role="radiogroup" aria-label="Type"><label><input type="radio" name="type" value="-1" checked>Dépense</label><label><input type="radio" name="type" value="1">Revenu</label></div>
+  ${fld('Libellé', '<input name="libelle" required autocomplete="off" placeholder="Loyer">')}
+  <div class="duo">${fld('Montant (€)', '<input type="number" name="montant" step="0.01" min="0" required inputmode="decimal">')}${fld('Jour du mois (1-28)', '<input type="number" name="jour" min="1" max="28" value="1" required inputmode="numeric">')}</div>
+  ${fld('Catégorie', `<select name="cat"><option value="">Automatique</option>${NOMS_CATS.filter(c => c !== 'Revenus').map(c => `<option>${c}</option>`).join('')}</select>`)}
+  <button class="btn plein">Ajouter</button></form>` });
+SHEETS.objectif = () => ({ titre: 'Nouvel objectif d’épargne', corps: `<form class="formulaire" data-form="objectif">
+  ${fld('Nom', '<input name="nom" required autocomplete="off" placeholder="Vacances d’été">')}
+  <div class="duo">${fld('Montant visé (€)', '<input type="number" name="cible" step="1" min="1" required inputmode="decimal">')}${fld('Déjà épargné (€)', '<input type="number" name="actuel" step="1" min="0" value="0" inputmode="decimal">')}</div>
+  ${fld('Date visée (facultatif)', '<input type="date" name="date">')}
+  <button class="btn plein">Créer l’objectif</button></form>` });
+let RESULTATS = [];
+SHEETS.recherche = () => ({ titre: 'Rechercher', corps: `<input id="q" type="search" placeholder="Courses, tâches, événements, lignes…" aria-label="Rechercher" autocomplete="off"><div id="resRech" class="resultats"><p class="vide">Tapez au moins 2 lettres.</p></div>` });
+function rechercher(q) {
+  const k = cle(q), R = [];
+  if (k.length < 2) return R;
+  const m = s => cle(s || '').includes(k), add = (g, t, s, extra) => R.push({ g, t, s, ...extra });
+  etat.courses.filter(c => m(c.nom)).slice(0, 6).forEach(c => add('Courses', c.nom, c.fait ? 'Dans le panier' : 'À acheter', { vue: 'courses' }));
+  etat.taches.filter(t => m(t.titre)).slice(0, 6).forEach(t => add('Tâches', t.titre, t.fait ? 'Terminée' : t.echeance ? 'Échéance ' + fmtDate(t.echeance) : 'À faire', { vue: 'taches' }));
+  etat.events.filter(e => m(e.titre)).slice(0, 6).forEach(e => add('Agenda', e.titre, fmtDate(e.date) + (e.rec ? ' · ' + REC_NOMS[e.rec].toLowerCase() : ''), { vue: 'agenda', date: e.date }));
+  Object.entries(etat.repas).forEach(([d, r]) => [r.midi, r.soir].filter(x => x && m(x)).forEach(x => add('Repas', x, fmtDate(d), { vue: 'repas', date: d })));
+  etat.tx.filter(t => m(t.libelle) || m(t.cat)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6).forEach(t => add('Budget', t.libelle, `${fmtDate(t.date)} · ${eur(t.montant)}`, { vue: 'budget', mois: t.date.slice(0, 7) }));
+  etat.objectifs.filter(o => m(o.nom)).forEach(o => add('Budget', o.nom, 'Objectif d’épargne', { vue: 'budget' }));
+  etat.recurrents.filter(r => m(r.libelle)).forEach(r => add('Budget', r.libelle, 'Opération récurrente', { vue: 'budget' }));
+  etat.pf.filter(p => m(p.ticker) || m(p.nom)).forEach(p => add('Bourse', p.ticker + (p.nom ? ' · ' + p.nom : ''), 'Ligne du portefeuille', { vue: 'bourse', onglet: 'lignes' }));
+  etat.membres.filter(x => m(x.nom)).forEach(x => add('Famille', x.nom, 'Membre', { vue: 'famille' }));
+  return R;
+}
+function afficherResultats(q) {
+  RESULTATS = rechercher(q);
+  const z = document.getElementById('resRech');
+  if (!z) return;
+  if (cle(q).length < 2) { z.innerHTML = '<p class="vide">Tapez au moins 2 lettres.</p>'; return; }
+  if (!RESULTATS.length) { z.innerHTML = '<p class="vide">Aucun résultat.</p>'; return; }
+  const groupes = [...new Set(RESULTATS.map(r => r.g))];
+  z.innerHTML = groupes.map(g => `<h3 class="mut" style="margin:10px 0 2px;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em">${g}</h3><ul class="liste">${RESULTATS.map((r, i) => r.g === g ? `<li><button class="rang" data-act="res" data-i="${i}"><span class="rang-txt">${esc(r.t)}<small>${esc(r.s)}</small></span></button></li>` : '').join('')}</ul>`).join('');
+}
 function ouvrirFeuille(nom, data) {
   const s = SHEETS[nom](data || {});
   feuille(s.titre, s.corps);
@@ -265,17 +399,42 @@ function feuille(titre, corps) {
 const fermerFeuille = () => document.querySelectorAll('.modal').forEach(m => m.remove());
 
 // ---------- Actions ----------
-const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del']);
+const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del']);
 const ACTIONS = {
   'ouvrir': el => { ouvrirFeuille(el.dataset.sheet, el.dataset); return 'vue'; },
   'filtre': el => { filtreT = el.dataset.v; return 'vue'; },
   'course-fait': el => { const c = etat.courses.find(x => x.id === el.dataset.id); c.fait = el.checked; },
+  'course-hab': el => { const v = etat.freq[el.dataset.k]; if (v) ajouterCourse(v.nom, 1); },
+  'res': el => {
+    const r = RESULTATS[Number(el.dataset.i)];
+    if (!r) return 'vue';
+    if (r.date) { jourSel = r.date; moisAff = new Date(parse(r.date).getFullYear(), parse(r.date).getMonth(), 1); semaineAff = lundi(parse(r.date)); }
+    if (r.mois) moisBudget = r.mois;
+    if (r.onglet) bTab = r.onglet;
+    aller(r.vue);
+    return 'vue';
+  },
+  'rec-del': el => { etat.recurrents = etat.recurrents.filter(x => x.id !== el.dataset.id); },
+  'obj-del': el => { etat.objectifs = etat.objectifs.filter(x => x.id !== el.dataset.id); },
+  'obj-versement': async el => {
+    const o = etat.objectifs.find(x => x.id === el.dataset.id);
+    const r = await dialogue({ titre: `Versement : ${o.nom}`, champs: [{ nom: 'v', label: 'Montant versé (€)' }], ok: 'Ajouter' });
+    const v = r && Number(String(r.v).replace(',', '.'));
+    if (!v || v <= 0) return false;
+    o.actuel = (o.actuel || 0) + v;
+  },
   'course-del': el => { etat.courses = etat.courses.filter(x => x.id !== el.dataset.id); },
   'course-vider': () => { etat.courses = etat.courses.filter(c => !c.fait); },
   'tache-fait': el => {
     const t = etat.taches.find(x => x.id === el.dataset.id);
     t.fait = el.checked;
     t.par = el.checked ? (etat.actif || t.membre || null) : null;
+    if (el.checked && t.rec && !t.suivante) { // tâche récurrente : prochaine occurrence
+      const n = { ...t, id: uid(), fait: false, par: null, suivante: null, echeance: prochaine(t.echeance || aujourdhui(), t.rec) };
+      etat.taches.push(n); t.suivante = n.id;
+    } else if (!el.checked && t.suivante) {
+      etat.taches = etat.taches.filter(x => !(x.id === t.suivante && !x.fait)); t.suivante = null;
+    }
   },
   'tache-del': el => { etat.taches = etat.taches.filter(x => x.id !== el.dataset.id); },
   'event-del': el => { etat.events = etat.events.filter(x => x.id !== el.dataset.id); },
@@ -303,7 +462,7 @@ const ACTIONS = {
       const r = etat.repas[iso(ajouteJours(semaineAff, i))] || {};
       [r.midi, r.soir].filter(Boolean).forEach(p => {
         const nom = p.trim();
-        if (nom && !noms.has(nom.toLowerCase())) { etat.courses.push({ id: uid(), nom, fait: false }); noms.add(nom.toLowerCase()); n++; }
+        if (nom && !noms.has(nom.toLowerCase())) { ajouterCourse(nom, 1); noms.add(nom.toLowerCase()); n++; }
       });
     }
     info(n ? `${n} élément${pl(n)} ajouté${pl(n)} aux courses.` : 'Rien à ajouter.');
@@ -321,19 +480,39 @@ const ACTIONS = {
 };
 
 const FORMS = {
-  course: f => etat.courses.unshift({ id: uid(), nom: f.nom.value.trim(), fait: false }),
-  tache: f => etat.taches.push({ id: uid(), titre: f.titre.value.trim(), membre: f.membre.value, points: Number(f.points.value) || 0, fait: false, par: null }),
-  event: f => { etat.events.push({ id: uid(), titre: f.titre.value.trim(), date: f.date.value, heure: f.heure.value, membre: f.membre.value }); jourSel = f.date.value; moisAff = new Date(parse(jourSel).getFullYear(), parse(jourSel).getMonth(), 1); },
+  course: f => { const [nom, qte] = parseCourse(f.nom.value); if (nom && ajouterCourse(nom, qte) === 'maj') info('Quantité mise à jour.'); },
+  tache: f => etat.taches.push({ id: uid(), titre: f.titre.value.trim(), membre: f.membre.value, points: Number(f.points.value) || 0, echeance: f.echeance.value, rec: f.rec.value, fait: false, par: null }),
+  event: f => { etat.events.push({ id: uid(), titre: f.titre.value.trim(), date: f.date.value, heure: f.heure.value, membre: f.membre.value, rec: f.rec.value }); jourSel = f.date.value; moisAff = new Date(parse(jourSel).getFullYear(), parse(jourSel).getMonth(), 1); },
   tx: f => {
     const m = Math.abs(Number(f.montant.value)) * Number(f.type.value);
-    etat.tx.push({ id: uid(), date: f.date.value, libelle: f.libelle.value.trim(), montant: m, cat: m > 0 ? 'Revenus' : f.cat.value });
+    etat.tx.push({ id: uid(), date: f.date.value, libelle: f.libelle.value.trim(), montant: m, cat: m > 0 ? 'Revenus' : (f.cat.value || devine(f.libelle.value)) });
   },
+  recurrent: f => { etat.recurrents.push({ id: uid(), libelle: f.libelle.value.trim(), montant: Math.abs(Number(f.montant.value)) * Number(f.type.value), jour: Number(f.jour.value) || 1, cat: Number(f.type.value) > 0 ? 'Revenus' : (f.cat.value || devine(f.libelle.value)), dernier: '' }); appliquerRecurrents(); },
+  objectif: f => etat.objectifs.push({ id: uid(), nom: f.nom.value.trim(), cible: Number(f.cible.value), actuel: Number(f.actuel.value) || 0, date: f.date.value }),
   membre: f => {
     const m = { id: uid(), nom: f.nom.value.trim(), couleur: COULEURS[etat.membres.length % COULEURS.length], naissance: f.naissance.value };
     etat.membres.push(m);
     if (!etat.actif) etat.actif = m.id;
   },
 };
+
+// ---------- Opérations récurrentes (générées à l'ouverture et à la création) ----------
+const moisSuivant = ym => { const [y, m] = ym.split('-').map(Number); return iso(new Date(y, m, 1)).slice(0, 7); };
+function appliquerRecurrents() {
+  const auj = aujourdhui(), cur = auj.slice(0, 7);
+  let change = false;
+  etat.recurrents.forEach(r => {
+    let ym = r.dernier ? moisSuivant(r.dernier) : cur;
+    while (ym <= cur) {
+      const date = `${ym}-${pad(Math.min(r.jour, 28))}`;
+      if (date > auj) break;
+      const k = `${r.id}:${ym}`;
+      if (!etat.tx.some(t => t.rec === k)) etat.tx.push({ id: uid(), date, libelle: r.libelle, montant: r.montant, cat: r.cat, rec: k });
+      r.dernier = ym; change = true; ym = moisSuivant(ym);
+    }
+  });
+  if (change) sauver();
+}
 
 // ---------- Événements ----------
 document.addEventListener('click', e => {
@@ -356,6 +535,7 @@ document.addEventListener('change', e => {
   else if (t.id === 'import') importer(t.files[0]);
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('.modal:not(:has(form.boite))')) fermerFeuille(); });
+document.addEventListener('input', e => { if (e.target.id === 'q') afficherResultats(e.target.value); });
 document.addEventListener('submit', e => {
   const f = e.target;
   if (!f.dataset.form) return;
@@ -508,5 +688,6 @@ function importerCsv(fichier) {
 }
 
 
+appliquerRecurrents();
 rendre();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
