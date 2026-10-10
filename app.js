@@ -1,7 +1,7 @@
 'use strict';
 
 const CLE = 'app-famille-v1';
-const COULEURS = ['#4f46e5', '#db2777', '#059669', '#d97706', '#0891b2', '#7c3aed', '#dc2626'];
+const COULEURS = ['#0b6b5b', '#c2417c', '#b45309', '#2563eb', '#7c3aed', '#be123c', '#0e7490'];
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
@@ -28,45 +28,72 @@ const aujourdhui = () => iso(new Date());
 const lundi = d => { const r = new Date(d); r.setDate(r.getDate() - ((r.getDay() + 6) % 7)); return r; };
 const ajouteJours = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
 const fmtDate = s => { const d = parse(s); return `${JOURS[(d.getDay() + 6) % 7]} ${d.getDate()} ${MOIS[d.getMonth()]}`; };
+const fmtLong = s => { const d = parse(s); return ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][d.getDay()] + ` ${d.getDate()} ${MOIS[d.getMonth()]}`; };
+const avatar = (id, grand) => { const m = membre(id); return m ? `<span class="av${grand ? ' gd' : ''}" style="--c:${m.couleur}" title="${esc(m.nom)}">${esc(m.nom.trim().charAt(0).toUpperCase())}</span>` : ''; };
 const pastille = id => { const m = membre(id); return m ? `<span class="tag" style="background:${m.couleur}">${esc(m.nom)}</span>` : ''; };
 const optionsMembres = (sel, vide) =>
   (vide ? `<option value="">${vide}</option>` : '') +
   etat.membres.map(m => `<option value="${m.id}"${m.id === sel ? ' selected' : ''}>${esc(m.nom)}</option>`).join('');
+const fld = (label, interieur) => `<label class="champ"><span>${label}</span>${interieur}</label>`;
+const pl = n => (n === 1 ? '' : 's');
+
+// ---------- Icônes ----------
+const ICONES = {
+  accueil: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  agenda: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/>',
+  listes: '<path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 6l1.3 1.3L7 5M3.5 12l1.3 1.3L7 11M3.5 18l1.3 1.3L7 17"/>',
+  argent: '<path d="M4 19V5M4 19h16"/><path d="M8 15l4-4 3 3 5-6"/>',
+  famille: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15.5 14.2c3 0 5.5 2 5.5 5.3"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+};
+const ico = (n, t = 22) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES[n]}</svg>`;
 
 // ---------- Navigation ----------
-const TITRES = { accueil: 'Accueil', courses: 'Courses', taches: 'Tâches', agenda: 'Agenda', repas: 'Repas', budget: 'Budget', famille: 'Famille' };
-let vue = 'accueil';
+const SECTIONS = {
+  accueil: { titre: 'Accueil', vues: ['accueil'] },
+  agenda: { titre: 'Agenda', vues: ['agenda'] },
+  listes: { titre: 'Listes', vues: ['courses', 'taches', 'repas'], noms: { courses: 'Courses', taches: 'Tâches', repas: 'Repas' } },
+  argent: { titre: 'Argent', vues: ['bourse', 'budget'], noms: { bourse: 'Bourse', budget: 'Budget' } },
+  famille: { titre: 'Famille', vues: ['famille'] },
+};
+const NOMS_ONGLETS = { accueil: 'Accueil', agenda: 'Agenda', listes: 'Listes', argent: 'Argent', famille: 'Famille' };
+const AJOUT = { // bouton « + » flottant par vue
+  taches: ['tache', 'Tâche'], agenda: ['event', 'Événement'], bourse: ['pos', 'Ligne'], budget: ['tx', 'Opération'], famille: ['membre', 'Membre'],
+};
+let section = 'accueil';
+const sous = { listes: 'courses', argent: 'bourse' };
 let jourSel = aujourdhui();
 let moisAff = new Date(); moisAff.setDate(1);
 let semaineAff = lundi(new Date());
 let moisBudget = iso(new Date()).slice(0, 7);
+let filtreT = '';
 
-const CATS = {
-  'Revenus': ['salaire', 'virement recu', 'caf', 'remboursement'],
-  'Courses': ['carrefour', 'leclerc', 'auchan', 'lidl', 'intermarche', 'monoprix', 'franprix', 'aldi', 'picard'],
-  'Logement': ['loyer', 'edf', 'engie', 'eau', 'assurance hab', 'internet', 'free', 'orange', 'sfr', 'bouygues'],
-  'Transport': ['sncf', 'ratp', 'navigo', 'essence', 'total', 'esso', 'uber', 'peage', 'parking'],
-  'Santé': ['pharmacie', 'docteur', 'medecin', 'mutuelle', 'dentiste'],
-  'Loisirs': ['netflix', 'spotify', 'cinema', 'restaurant', 'resto', 'amazon', 'fnac', 'decathlon'],
-  'Enfants': ['ecole', 'cantine', 'creche', 'peri', 'jouet'],
-  'Autre': [],
-};
-const NOMS_CATS = Object.keys(CATS);
-const devine = lib => {
-  const l = lib.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return NOMS_CATS.find(c => CATS[c].some(k => l.includes(k))) || 'Autre';
-};
-const eur = n => (Math.abs(n) < 0.005 ? 0 : n).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
-
-function aller(v) { vue = v; rendre(); window.scrollTo(0, 0); }
+const vueCourante = () => (SECTIONS[section].vues.length > 1 ? sous[section] : SECTIONS[section].vues[0]);
+function aller(v) {
+  if (SECTIONS[v]) section = v;
+  else { section = Object.keys(SECTIONS).find(s => SECTIONS[s].vues.includes(v)); sous[section] = v; }
+  fermerFeuille();
+  rendre();
+  window.scrollTo(0, 0);
+}
 
 function rendre() {
-  document.getElementById('titre').textContent = TITRES[vue];
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.vue === vue));
+  const S = SECTIONS[section], v = vueCourante(), actif = membre(etat.actif);
+  document.getElementById('titre').textContent = section === 'accueil' ? `Bonjour${actif ? ', ' + actif.nom : ''}` : S.titre;
+  document.getElementById('sousTitre').textContent = section === 'accueil' ? fmtLong(aujourdhui()) : '';
+  document.getElementById('tabs').innerHTML = Object.keys(SECTIONS).map(s =>
+    `<button data-goto="${s}"${s === section ? ' aria-current="page"' : ''}><span class="pastille">${ico(s)}</span>${NOMS_ONGLETS[s]}</button>`).join('');
+  const nav = document.getElementById('sousNav');
+  nav.hidden = S.vues.length < 2;
+  nav.innerHTML = S.vues.length < 2 ? '' : `<div class="seg" role="tablist">${S.vues.map(x =>
+    `<button role="tab" data-goto="${x}" aria-selected="${x === v}">${S.noms[x]}</button>`).join('')}</div>`;
   const sel = document.getElementById('membreActif');
   sel.innerHTML = optionsMembres(etat.actif, 'Qui êtes-vous ?');
   sel.hidden = !etat.membres.length;
-  document.getElementById('vue').innerHTML = VUES[vue]();
+  document.getElementById('vue').innerHTML = VUES[v]();
+  const a = AJOUT[v];
+  document.getElementById('fabZone').innerHTML = a ? `<button class="fab" data-act="ouvrir" data-sheet="${a[0]}" aria-label="Ajouter : ${a[1]}">${ico('plus')}${a[1]}</button>` : '';
 }
 
 // ---------- Vues ----------
@@ -74,111 +101,90 @@ const VUES = {
   accueil() {
     const auj = aujourdhui();
     const evs = etat.events.filter(e => e.date === auj).sort((a, b) => (a.heure || '').localeCompare(b.heure || ''));
-    const aFaire = etat.taches.filter(t => !t.fait);
-    const aAcheter = etat.courses.filter(c => !c.fait);
+    const aFaire = etat.taches.filter(t => !t.fait), aAcheter = etat.courses.filter(c => !c.fait);
     const repas = etat.repas[auj] || {};
     const prochains = etat.events.filter(e => e.date > auj).sort((a, b) => (a.date + (a.heure || '')).localeCompare(b.date + (b.heure || ''))).slice(0, 3);
     const anniv = etat.membres.filter(m => m.naissance && m.naissance.slice(5) === auj.slice(5));
+    const pf = etat.pf.length && typeof pfCalc === 'function' ? pfCalc() : null;
     return `
-      <div class="card"><h2>${fmtDate(auj)}</h2>
-        ${etat.membres.length ? '' : '<p class="mut">Commencez par ajouter les membres dans l’onglet Famille.</p>'}
-        ${anniv.map(m => `<p>🎂 Joyeux anniversaire <b>${esc(m.nom)}</b> !</p>`).join('')}
+      ${etat.membres.length ? '' : `<section class="carte"><h2>Bienvenue</h2><p class="mut">Créez votre foyer pour partager courses, tâches et agenda. Chaque membre a sa couleur.</p><button class="btn" data-act="ouvrir" data-sheet="membre">Ajouter un premier membre</button></section>`}
+      ${anniv.map(m => `<section class="carte"><p><b>Joyeux anniversaire ${esc(m.nom)} !</b></p></section>`).join('')}
+      <section class="carte"><div class="carte-tete"><h2>Aujourd’hui</h2><button class="lien" data-goto="agenda">Agenda</button></div>
+        ${evs.length ? `<ul class="liste">${evs.map(e => `<li class="rang"><span class="heure">${esc(e.heure || '—')}</span><span class="rang-txt">${esc(e.titre)}</span>${avatar(e.membre)}</li>`).join('')}</ul>`
+          : `<p class="vide">Journée libre.<br><button class="btn sec" data-act="ouvrir" data-sheet="event">Ajouter un événement</button></p>`}
+        ${prochains.length ? `<small>À venir : ${prochains.map(e => `${fmtDate(e.date)} · ${esc(e.titre)}`).join(' — ')}</small>` : ''}
+      </section>
+      <div class="tuiles">
+        <button class="tuile" data-goto="courses"><span class="tuile-n">${aAcheter.length}</span><span>article${pl(aAcheter.length)} à acheter</span></button>
+        <button class="tuile" data-goto="taches"><span class="tuile-n">${aFaire.length}</span><span>tâche${pl(aFaire.length)} à faire</span></button>
       </div>
-      <div class="card"><h2>📅 Aujourd’hui</h2>
-        ${evs.length ? `<ul class="list">${evs.map(e => `<li><div class="grow">${e.heure ? `<b>${esc(e.heure)}</b> ` : ''}${esc(e.titre)}</div>${pastille(e.membre)}</li>`).join('')}</ul>` : '<p class="vide">Rien de prévu</p>'}
-        ${prochains.length ? `<p class="mut">À venir : ${prochains.map(e => `${fmtDate(e.date)} – ${esc(e.titre)}`).join(' · ')}</p>` : ''}
-      </div>
-      <div class="card"><h2>🍽️ Menu du jour</h2>
-        <p>Midi : ${esc(repas.midi) || '<span class="mut">non défini</span>'}<br>Soir : ${esc(repas.soir) || '<span class="mut">non défini</span>'}</p>
-      </div>
-      <div class="card"><h2>✅ ${aFaire.length} tâche(s) à faire</h2>
-        <ul class="list">${aFaire.slice(0, 5).map(t => `<li><div class="grow">${esc(t.titre)}</div>${pastille(t.membre)}</li>`).join('') || '<li class="vide">Tout est fait 🎉</li>'}</ul>
-      </div>
-      <div class="card"><h2>🛒 ${aAcheter.length} article(s) à acheter</h2>
-        <p class="mut">${aAcheter.slice(0, 8).map(c => esc(c.nom)).join(', ') || 'Liste vide'}</p>
-      </div>`;
+      <button class="carte" data-goto="repas" style="text-align:left"><h2>Au menu aujourd’hui</h2>
+        <p><span class="mut">Midi</span> · ${esc(repas.midi) || '<span class="mut">à définir</span>'}<br><span class="mut">Soir</span> · ${esc(repas.soir) || '<span class="mut">à définir</span>'}</p></button>
+      ${pf ? `<button class="carte" data-goto="bourse" style="text-align:left"><h2>Portefeuille</h2><div class="bar"><b class="score">${eur(pf.total)}</b>${pillPl(pf.pl, pf.investi ? pf.pl / pf.investi * 100 : 0)}</div></button>` : ''}`;
   },
 
   courses() {
-    const items = [...etat.courses].sort((a, b) => a.fait - b.fait);
+    const aAcheter = etat.courses.filter(c => !c.fait), panier = etat.courses.filter(c => c.fait);
+    const ligne = c => `<li class="rang ${c.fait ? 'fait' : ''}"><label class="rang-main"><input type="checkbox" class="coche" data-act="course-fait" data-id="${c.id}"${c.fait ? ' checked' : ''}><span class="rang-txt">${esc(c.nom)}</span></label>
+      <button class="icone" data-act="course-del" data-id="${c.id}" aria-label="Supprimer ${esc(c.nom)}">${ico('x', 18)}</button></li>`;
     return `
-      <form class="row" data-form="course"><input type="text" name="nom" placeholder="Ajouter un article…" required autocomplete="off"><button class="btn">Ajouter</button></form>
-      <div class="card"><ul class="list">
-        ${items.map(c => `<li class="${c.fait ? 'fait' : ''}">
-          <input type="checkbox" data-act="course-fait" data-id="${c.id}"${c.fait ? ' checked' : ''}>
-          <div class="grow">${esc(c.nom)}</div>
-          <button class="btn del" data-act="course-del" data-id="${c.id}" aria-label="Supprimer">✕</button></li>`).join('') || '<li class="vide">La liste est vide</li>'}
-      </ul></div>
-      ${etat.courses.some(c => c.fait) ? '<button class="btn sec" data-act="course-vider">Retirer les articles cochés</button>' : ''}`;
+      <form class="ajout" data-form="course"><input type="text" name="nom" placeholder="Ajouter un article" aria-label="Nouvel article" required autocomplete="off" enterkeyhint="done"><button class="btn" aria-label="Ajouter">${ico('plus', 20)}</button></form>
+      <section class="carte"><div class="carte-tete"><h2>À acheter</h2><span class="pill pri">${aAcheter.length}</span></div>
+        <ul class="liste">${aAcheter.map(ligne).join('') || '<li class="vide">Rien à acheter. Ajoutez un article ci-dessus.</li>'}</ul></section>
+      ${panier.length ? `<section class="carte"><div class="carte-tete"><h2>Dans le panier</h2><button class="lien" data-act="course-vider">Vider</button></div>
+        <ul class="liste">${panier.map(ligne).join('')}</ul></section>` : ''}`;
   },
 
   taches() {
-    const scores = etat.membres.map(m => ({ m, pts: etat.taches.filter(t => t.fait && t.par === m.id).reduce((s, t) => s + (t.points || 0), 0) }))
-      .sort((a, b) => b.pts - a.pts);
-    const items = [...etat.taches].sort((a, b) => a.fait - b.fait);
+    const scores = etat.membres.map(m => ({ m, pts: etat.taches.filter(t => t.fait && t.par === m.id).reduce((s, t) => s + (t.points || 0), 0) })).sort((a, b) => b.pts - a.pts);
+    const liste = etat.taches.filter(t => !filtreT || t.membre === filtreT || (!t.membre && filtreT === '*')).sort((a, b) => a.fait - b.fait);
     return `
-      <form class="row" data-form="tache">
-        <input type="text" name="titre" placeholder="Nouvelle tâche…" required autocomplete="off">
-        <select name="membre">${optionsMembres(etat.actif, 'Pour tous')}</select>
-        <input type="number" name="points" min="0" max="100" value="1" style="width:70px" title="Points" aria-label="Points">
-        <button class="btn">Ajouter</button>
-      </form>
-      <div class="card"><ul class="list">
-        ${items.map(t => `<li class="${t.fait ? 'fait' : ''}">
-          <input type="checkbox" data-act="tache-fait" data-id="${t.id}"${t.fait ? ' checked' : ''}>
-          <div class="grow">${esc(t.titre)} <span class="mut">${t.points ? `+${t.points} pt` : ''}</span></div>
-          ${pastille(t.membre)}
-          <button class="btn del" data-act="tache-del" data-id="${t.id}" aria-label="Supprimer">✕</button></li>`).join('') || '<li class="vide">Aucune tâche</li>'}
-      </ul></div>
-      ${scores.length ? `<div class="card"><h2>🏆 Classement</h2><ul class="list">
-        ${scores.map(s => `<li><div class="grow">${pastille(s.m.id)}</div><span class="score">${s.pts}</span></li>`).join('')}</ul>
-        <p class="mut">Les points vont à la personne qui coche la tâche (membre actif).</p></div>` : ''}`;
+      ${etat.membres.length ? `<div class="chips" role="group" aria-label="Filtrer par personne">
+        <button data-act="filtre" data-v="" aria-pressed="${!filtreT}">Tout le monde</button>
+        ${etat.membres.map(m => `<button data-act="filtre" data-v="${m.id}" aria-pressed="${filtreT === m.id}">${esc(m.nom)}</button>`).join('')}</div>` : ''}
+      <section class="carte"><ul class="liste">
+        ${liste.map(t => `<li class="rang ${t.fait ? 'fait' : ''}"><label class="rang-main"><input type="checkbox" class="coche" data-act="tache-fait" data-id="${t.id}"${t.fait ? ' checked' : ''}>
+          <span class="rang-txt">${esc(t.titre)}${t.points ? `<small>+${t.points} point${pl(t.points)}</small>` : ''}</span></label>${avatar(t.membre)}
+          <button class="icone" data-act="tache-del" data-id="${t.id}" aria-label="Supprimer ${esc(t.titre)}">${ico('x', 18)}</button></li>`).join('')
+          || `<li class="vide">Aucune tâche.<br><button class="btn sec" data-act="ouvrir" data-sheet="tache">Ajouter une tâche</button></li>`}
+      </ul></section>
+      ${scores.some(s => s.pts > 0) ? `<section class="carte"><h2>Classement</h2><ul class="liste">
+        ${scores.map((s, i) => `<li class="rang"><span class="mut num" style="width:20px">${i + 1}</span>${avatar(s.m.id)}<span class="rang-txt">${esc(s.m.nom)}</span><b class="score">${s.pts}</b></li>`).join('')}</ul>
+        <small>Les points vont à la personne qui coche la tâche (membre actif en haut à droite).</small></section>` : ''}`;
   },
 
   agenda() {
     const an = moisAff.getFullYear(), mo = moisAff.getMonth();
-    const decal = (new Date(an, mo, 1).getDay() + 6) % 7;
-    const nbJ = new Date(an, mo + 1, 0).getDate();
-    const cases = [];
-    for (let i = 0; i < decal; i++) cases.push('<div></div>');
+    const decal = (new Date(an, mo, 1).getDay() + 6) % 7, nbJ = new Date(an, mo + 1, 0).getDate();
+    const cases = Array.from({ length: decal }, () => '<div></div>');
     for (let j = 1; j <= nbJ; j++) {
-      const d = `${an}-${pad(mo + 1)}-${pad(j)}`;
-      const cls = ['j', d === jourSel && 'sel', d === aujourdhui() && 'auj', etat.events.some(e => e.date === d) && 'ev'].filter(Boolean).join(' ');
-      cases.push(`<div class="${cls}" data-act="jour" data-date="${d}">${j}</div>`);
+      const d = `${an}-${pad(mo + 1)}-${pad(j)}`, evs = etat.events.filter(e => e.date === d);
+      cases.push(`<button class="jour${d === jourSel ? ' sel' : ''}${d === aujourdhui() ? ' auj' : ''}" data-act="jour" data-date="${d}" aria-label="${fmtDate(d)}${evs.length ? ', ' + evs.length + ' événement' + pl(evs.length) : ''}" aria-pressed="${d === jourSel}">${j}
+        <span class="pts">${evs.slice(0, 3).map(e => `<b style="background:${membre(e.membre)?.couleur || 'var(--pri)'}"></b>`).join('')}</span></button>`);
     }
     const evs = etat.events.filter(e => e.date === jourSel).sort((a, b) => (a.heure || '').localeCompare(b.heure || ''));
     return `
-      <div class="card">
-        <div class="bar"><button class="btn sec" data-act="mois" data-n="-1">‹</button><b>${MOIS[mo]} ${an}</b><button class="btn sec" data-act="mois" data-n="1">›</button></div>
-        <div class="grid7">${JOURS.map(j => `<div class="h">${j}</div>`).join('')}${cases.join('')}</div>
-      </div>
-      <div class="card"><h2>${fmtDate(jourSel)}</h2>
-        <ul class="list">${evs.map(e => `<li><div class="grow">${e.heure ? `<b>${esc(e.heure)}</b> ` : ''}${esc(e.titre)}</div>${pastille(e.membre)}
-          <button class="btn del" data-act="event-del" data-id="${e.id}" aria-label="Supprimer">✕</button></li>`).join('') || '<li class="vide">Aucun événement</li>'}</ul>
-      </div>
-      <form class="row" data-form="event">
-        <input type="text" name="titre" placeholder="Nouvel événement…" required autocomplete="off">
-        <input type="time" name="heure">
-        <select name="membre">${optionsMembres('', 'Tous')}</select>
-        <button class="btn">Ajouter</button>
-      </form>`;
+      <section class="carte">
+        <div class="carte-tete"><button class="icone" data-act="mois" data-n="-1" aria-label="Mois précédent">‹</button><h2 class="cap">${MOIS[mo]} ${an}</h2><button class="icone" data-act="mois" data-n="1" aria-label="Mois suivant">›</button></div>
+        <div class="mois">${JOURS.map(j => `<div class="h">${j}</div>`).join('')}${cases.join('')}</div>
+        <button class="lien" data-act="aujourdhui" style="align-self:center">Revenir à aujourd’hui</button>
+      </section>
+      <section class="carte"><h2 class="cap">${fmtLong(jourSel)}</h2>
+        <ul class="liste">${evs.map(e => `<li class="rang"><span class="heure">${esc(e.heure || '—')}</span><span class="rang-txt">${esc(e.titre)}</span>${avatar(e.membre)}
+          <button class="icone" data-act="event-del" data-id="${e.id}" aria-label="Supprimer ${esc(e.titre)}">${ico('x', 18)}</button></li>`).join('')
+          || '<li class="vide">Aucun événement ce jour-là.</li>'}</ul></section>`;
   },
 
   repas() {
-    const jours = Array.from({ length: 7 }, (_, i) => ajouteJours(semaineAff, i));
-    const fin = jours[6];
+    const jours = Array.from({ length: 7 }, (_, i) => ajouteJours(semaineAff, i)), auj = aujourdhui();
     return `
-      <div class="bar"><button class="btn sec" data-act="semaine" data-n="-1">‹</button>
-        <b>${fmtDate(iso(semaineAff))} → ${fmtDate(iso(fin))}</b>
-        <button class="btn sec" data-act="semaine" data-n="1">›</button></div>
-      <div class="card repas"><table>
-        <tr><th>Jour</th><th>Midi</th><th>Soir</th></tr>
-        ${jours.map(d => { const k = iso(d), r = etat.repas[k] || {}; return `<tr>
-          <td>${JOURS[(d.getDay() + 6) % 7]} ${d.getDate()}</td>
-          <td><input data-repas="${k}" data-slot="midi" value="${esc(r.midi)}" aria-label="Midi ${k}"></td>
-          <td><input data-repas="${k}" data-slot="soir" value="${esc(r.soir)}" aria-label="Soir ${k}"></td></tr>`; }).join('')}
-      </table></div>
-      <button class="btn sec" data-act="repas-courses">Ajouter les plats de la semaine aux courses</button>`;
+      <div class="carte-tete"><button class="icone" data-act="semaine" data-n="-1" aria-label="Semaine précédente">‹</button>
+        <b>${fmtDate(iso(semaineAff))} → ${fmtDate(iso(jours[6]))}</b>
+        <button class="icone" data-act="semaine" data-n="1" aria-label="Semaine suivante">›</button></div>
+      ${jours.map(d => { const k = iso(d), r = etat.repas[k] || {}; return `<div class="jr${k === auj ? ' auj' : ''}"><h3>${fmtLong(k)}${k === auj ? ' · aujourd’hui' : ''}</h3>
+        ${fld('Midi', `<input data-repas="${k}" data-slot="midi" value="${esc(r.midi)}" placeholder="—">`)}
+        ${fld('Soir', `<input data-repas="${k}" data-slot="soir" value="${esc(r.soir)}" placeholder="—">`)}</div>`; }).join('')}
+      <button class="btn sec plein" data-act="repas-courses">Ajouter les plats de la semaine aux courses</button>`;
   },
 
   budget() {
@@ -188,56 +194,81 @@ const VUES = {
     const dep = -tx.filter(t => t.montant < 0).reduce((s, t) => s + t.montant, 0);
     const parCat = c => -tx.filter(t => t.cat === c && t.montant < 0).reduce((s, t) => s + t.montant, 0);
     return `
-      <div class="bar"><button class="btn sec" data-act="mois-budget" data-n="-1">‹</button><b>${MOIS[mo - 1]} ${an}</b><button class="btn sec" data-act="mois-budget" data-n="1">›</button></div>
-      <div class="card"><div class="bar"><span>Revenus</span><b style="color:var(--ok)">${eur(rev)}</b></div>
-        <div class="bar"><span>Dépenses</span><b style="color:var(--ko)">${eur(dep)}</b></div>
-        <div class="bar"><span>Solde</span><b class="score">${eur(rev - dep)}</b></div></div>
-      <div class="card"><h2>Par catégorie</h2>
+      <div class="carte-tete"><button class="icone" data-act="mois-budget" data-n="-1" aria-label="Mois précédent">‹</button><b class="cap">${MOIS[mo - 1]} ${an}</b><button class="icone" data-act="mois-budget" data-n="1" aria-label="Mois suivant">›</button></div>
+      <section class="hero"><p class="hero-lbl">Solde du mois</p><p class="hero-val">${eur(rev - dep)}</p>
+        <p class="hero-sub">Revenus ${eur(rev)} · Dépenses ${eur(dep)}</p></section>
+      <section class="carte"><h2>Par catégorie</h2>
         ${NOMS_CATS.filter(c => c !== 'Revenus').map(c => { const v = parCat(c), p = etat.plafonds[c] || 0, pc = p ? Math.min(100, v / p * 100) : 0;
-          return `<div style="margin-bottom:10px"><div class="bar" style="margin:0"><span>${c}</span><span>${eur(v)}${p ? ' / ' : ''}<input type="number" min="0" step="10" class="plaf" data-plafond="${c}" value="${p || ''}" placeholder="plafond €"></span></div>
-          ${p ? `<div class="jauge"><i style="width:${pc}%;background:${v > p ? 'var(--ko)' : 'var(--ok)'}"></i></div>` : ''}</div>`; }).join('')}
-      </div>
-      <form class="row" data-form="tx">
-        <input type="text" name="libelle" placeholder="Libellé…" required autocomplete="off">
-        <input type="number" name="montant" step="0.01" placeholder="Montant €" required style="width:110px">
-        <select name="type"><option value="-1">Dépense</option><option value="1">Revenu</option></select>
-        <input type="date" name="date" value="${moisBudget === aujourdhui().slice(0, 7) ? aujourdhui() : moisBudget + '-01'}" required>
-        <select name="cat">${NOMS_CATS.filter(c => c !== 'Revenus').map(c => `<option>${c}</option>`).join('')}</select>
-        <button class="btn">Ajouter</button>
-      </form>
-      <div class="card"><ul class="list">
-        ${tx.map(t => `<li><div class="grow">${esc(t.libelle)}<div class="mut">${fmtDate(t.date)} · ${esc(t.cat)}</div></div>
-          <b style="color:${t.montant < 0 ? 'var(--ko)' : 'var(--ok)'}">${eur(t.montant)}</b>
-          <button class="btn del" data-act="tx-del" data-id="${t.id}" aria-label="Supprimer">✕</button></li>`).join('') || '<li class="vide">Aucune opération ce mois-ci</li>'}
-      </ul></div>
-      <div class="card"><h2>📄 Importer un relevé bancaire (CSV)</h2>
-        <p class="mut">Téléchargez le relevé CSV depuis le site de votre banque : colonnes date, libellé, montant (ou débit/crédit). Les catégories sont devinées, doublons ignorés.</p>
-        <label class="btn" style="display:inline-block">Choisir un fichier CSV<input type="file" id="importCsv" accept=".csv,text/csv,text/plain" hidden></label>
-      </div>`;
+          return `<div><div class="bar"><span>${c}</span><span class="num">${eur(v)}</span></div>
+          ${p ? `<div class="jauge"><i style="width:${pc}%;background:${v > p ? 'var(--bad)' : 'var(--ok)'}"></i></div>` : ''}
+          <div class="bar"><small>Plafond mensuel</small><input type="number" min="0" step="10" class="plaf" data-plafond="${c}" value="${p || ''}" placeholder="€" aria-label="Plafond ${c}"></div></div>`; }).join('')}</section>
+      <section class="carte"><h2>Opérations</h2><ul class="liste">
+        ${tx.map(t => `<li class="rang"><span class="rang-txt">${esc(t.libelle)}<small>${fmtDate(t.date)} · ${esc(t.cat)}</small></span>
+          <b class="num" style="color:var(--${t.montant < 0 ? 'bad' : 'ok'})">${eur(t.montant)}</b>
+          <button class="icone" data-act="tx-del" data-id="${t.id}" aria-label="Supprimer ${esc(t.libelle)}">${ico('x', 18)}</button></li>`).join('') || '<li class="vide">Aucune opération ce mois-ci.</li>'}</ul></section>
+      <section class="carte"><h2>Importer un relevé bancaire (CSV)</h2>
+        <p class="mut">Téléchargez le relevé CSV depuis le site de votre banque (date, libellé, montant ou débit/crédit). Catégories devinées, doublons ignorés.</p>
+        <label class="btn sec">Choisir un fichier CSV<input type="file" id="importCsv" accept=".csv,text/csv,text/plain" hidden></label></section>`;
   },
 
   famille() {
     return `
-      <form class="row" data-form="membre">
-        <input type="text" name="nom" placeholder="Prénom…" required autocomplete="off">
-        <input type="date" name="naissance" title="Date de naissance (optionnel)" aria-label="Date de naissance">
-        <button class="btn">Ajouter</button>
-      </form>
-      <div class="card"><ul class="list">
-        ${etat.membres.map(m => `<li>${pastille(m.id)}<div class="grow mut">${m.naissance ? '🎂 ' + fmtDate(m.naissance) : ''}</div>
-          <button class="btn del" data-act="membre-del" data-id="${m.id}" aria-label="Supprimer">✕</button></li>`).join('') || '<li class="vide">Ajoutez les membres de la famille</li>'}
-      </ul></div>
-      <div class="card"><h2>💾 Données</h2>
-        <p class="mut">Les données sont stockées sur cet appareil. Exportez-les pour les sauvegarder ou les copier sur un autre appareil.</p>
-        <button class="btn" data-act="export">Exporter</button>
-        <button class="btn sec" data-act="import-coller">Importer (coller)</button>
-        <label class="btn sec" style="display:inline-block">Importer un fichier<input type="file" id="import" accept="application/json" hidden></label>
-      </div>`;
+      <section class="carte"><h2>Membres</h2><ul class="liste">
+        ${etat.membres.map(m => `<li class="rang">${avatar(m.id, true)}<span class="rang-txt"><b>${esc(m.nom)}</b>${m.naissance ? `<small>Né(e) le ${fmtDate(m.naissance)}</small>` : ''}</span>
+          <button class="icone" data-act="membre-del" data-id="${m.id}" aria-label="Supprimer ${esc(m.nom)}">${ico('x', 18)}</button></li>`).join('')
+          || `<li class="vide">Ajoutez les membres de la famille.<br><button class="btn sec" data-act="ouvrir" data-sheet="membre">Ajouter un membre</button></li>`}</ul></section>
+      <section class="carte"><h2>Sauvegarde</h2>
+        <p class="mut">Les données restent sur cet appareil. Exportez-les pour les conserver ou les copier sur un autre appareil.</p>
+        <div class="rangee"><button class="btn" data-act="export">Exporter</button><button class="btn sec" data-act="import-coller">Importer (coller)</button></div>
+        <label class="btn sec">Importer un fichier<input type="file" id="import" accept="application/json" hidden></label></section>`;
   },
 };
 
+// ---------- Feuilles de saisie (bottom sheets) ----------
+const SHEETS = {
+  tache: () => ({ titre: 'Nouvelle tâche', corps: `<form class="formulaire" data-form="tache">
+    ${fld('Tâche', '<input name="titre" required autocomplete="off" placeholder="Sortir les poubelles">')}
+    <div class="duo">${fld('Pour', `<select name="membre">${optionsMembres(etat.actif, 'Tout le monde')}</select>`)}
+    ${fld('Points', '<input type="number" name="points" min="0" max="100" value="1" inputmode="numeric">')}</div>
+    <button class="btn plein">Ajouter la tâche</button></form>` }),
+  event: () => ({ titre: 'Nouvel événement', corps: `<form class="formulaire" data-form="event">
+    ${fld('Titre', '<input name="titre" required autocomplete="off" placeholder="Rendez-vous dentiste">')}
+    <div class="duo">${fld('Date', `<input type="date" name="date" value="${jourSel}" required>`)}${fld('Heure', '<input type="time" name="heure">')}</div>
+    ${fld('Pour', `<select name="membre">${optionsMembres('', 'Toute la famille')}</select>`)}
+    <button class="btn plein">Ajouter l’événement</button></form>` }),
+  membre: () => ({ titre: 'Nouveau membre', corps: `<form class="formulaire" data-form="membre">
+    ${fld('Prénom', '<input name="nom" required autocomplete="off">')}
+    ${fld('Date de naissance (facultatif)', '<input type="date" name="naissance">')}
+    <button class="btn plein">Ajouter</button></form>` }),
+  tx: () => ({ titre: 'Nouvelle opération', corps: `<form class="formulaire" data-form="tx">
+    <div class="choix" role="radiogroup" aria-label="Type"><label><input type="radio" name="type" value="-1" checked>Dépense</label><label><input type="radio" name="type" value="1">Revenu</label></div>
+    ${fld('Libellé', '<input name="libelle" required autocomplete="off">')}
+    <div class="duo">${fld('Montant (€)', '<input type="number" name="montant" step="0.01" min="0" required inputmode="decimal">')}
+    ${fld('Date', `<input type="date" name="date" value="${moisBudget === aujourdhui().slice(0, 7) ? aujourdhui() : moisBudget + '-01'}" required>`)}</div>
+    ${fld('Catégorie', `<select name="cat">${NOMS_CATS.filter(c => c !== 'Revenus').map(c => `<option>${c}</option>`).join('')}</select>`)}
+    <button class="btn plein">Ajouter</button></form>` }),
+};
+function ouvrirFeuille(nom, data) {
+  const s = SHEETS[nom](data || {});
+  feuille(s.titre, s.corps);
+}
+function feuille(titre, corps) {
+  fermerFeuille();
+  const fond = document.createElement('div');
+  fond.className = 'modal';
+  fond.innerHTML = `<div class="boite" role="dialog" aria-modal="true" aria-label="${esc(titre)}"><div class="boite-tete"><h2>${esc(titre)}</h2>
+    <button type="button" class="icone" data-fermer aria-label="Fermer">${ico('x', 20)}</button></div>${corps}</div>`;
+  document.body.appendChild(fond);
+  fond.addEventListener('click', e => { if (e.target === fond || e.target.closest('[data-fermer]')) fermerFeuille(); });
+  fond.querySelector('input:not([type=radio]):not([type=hidden]),select,textarea')?.focus();
+}
+const fermerFeuille = () => document.querySelectorAll('.modal').forEach(m => m.remove());
+
 // ---------- Actions ----------
+const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del']);
 const ACTIONS = {
+  'ouvrir': el => { ouvrirFeuille(el.dataset.sheet, el.dataset); return 'vue'; },
+  'filtre': el => { filtreT = el.dataset.v; return 'vue'; },
   'course-fait': el => { const c = etat.courses.find(x => x.id === el.dataset.id); c.fait = el.checked; },
   'course-del': el => { etat.courses = etat.courses.filter(x => x.id !== el.dataset.id); },
   'course-vider': () => { etat.courses = etat.courses.filter(c => !c.fait); },
@@ -248,8 +279,7 @@ const ACTIONS = {
   },
   'tache-del': el => { etat.taches = etat.taches.filter(x => x.id !== el.dataset.id); },
   'event-del': el => { etat.events = etat.events.filter(x => x.id !== el.dataset.id); },
-  'membre-del': async el => {
-    if (!await confirmer('Supprimer ce membre ?')) return false;
+  'membre-del': el => {
     const id = el.dataset.id;
     etat.membres = etat.membres.filter(m => m.id !== id);
     if (etat.actif === id) etat.actif = null;
@@ -263,6 +293,7 @@ const ACTIONS = {
   },
   'tx-del': el => { etat.tx = etat.tx.filter(x => x.id !== el.dataset.id); },
   'jour': el => { jourSel = el.dataset.date; return 'vue'; },
+  'aujourdhui': () => { jourSel = aujourdhui(); moisAff = new Date(); moisAff.setDate(1); return 'vue'; },
   'mois': el => { moisAff = new Date(moisAff.getFullYear(), moisAff.getMonth() + Number(el.dataset.n), 1); return 'vue'; },
   'semaine': el => { semaineAff = ajouteJours(semaineAff, 7 * Number(el.dataset.n)); return 'vue'; },
   'repas-courses': () => {
@@ -275,7 +306,7 @@ const ACTIONS = {
         if (nom && !noms.has(nom.toLowerCase())) { etat.courses.push({ id: uid(), nom, fait: false }); noms.add(nom.toLowerCase()); n++; }
       });
     }
-    info(n ? `${n} élément(s) ajouté(s) aux courses.` : 'Rien à ajouter.');
+    info(n ? `${n} élément${pl(n)} ajouté${pl(n)} aux courses.` : 'Rien à ajouter.');
   },
   'export': async () => {
     await dialogue({ titre: 'Exporter les données', texte: 'Copiez ce texte et conservez-le dans un fichier ou une note : il suffit de le coller dans « Importer » pour tout retrouver.', champs: [{ nom: 'json', zone: true, lecture: true, valeur: JSON.stringify(etat) }], ok: 'Fermer', annuler: false, copie: true });
@@ -290,9 +321,9 @@ const ACTIONS = {
 };
 
 const FORMS = {
-  course: f => etat.courses.push({ id: uid(), nom: f.nom.value.trim(), fait: false }),
+  course: f => etat.courses.unshift({ id: uid(), nom: f.nom.value.trim(), fait: false }),
   tache: f => etat.taches.push({ id: uid(), titre: f.titre.value.trim(), membre: f.membre.value, points: Number(f.points.value) || 0, fait: false, par: null }),
-  event: f => etat.events.push({ id: uid(), titre: f.titre.value.trim(), date: jourSel, heure: f.heure.value, membre: f.membre.value }),
+  event: f => { etat.events.push({ id: uid(), titre: f.titre.value.trim(), date: f.date.value, heure: f.heure.value, membre: f.membre.value }); jourSel = f.date.value; moisAff = new Date(parse(jourSel).getFullYear(), parse(jourSel).getMonth(), 1); },
   tx: f => {
     const m = Math.abs(Number(f.montant.value)) * Number(f.type.value);
     etat.tx.push({ id: uid(), date: f.date.value, libelle: f.libelle.value.trim(), montant: m, cat: m > 0 ? 'Revenus' : f.cat.value });
@@ -304,9 +335,12 @@ const FORMS = {
   },
 };
 
+// ---------- Événements ----------
 document.addEventListener('click', e => {
+  const g = e.target.closest('[data-goto]');
+  if (g) { aller(g.dataset.goto); return; }
   const el = e.target.closest('[data-act]');
-  if (el && !(el.type === 'checkbox')) executer(el);
+  if (el && el.type !== 'checkbox') executer(el);
 });
 document.addEventListener('change', e => {
   const t = e.target;
@@ -317,27 +351,30 @@ document.addEventListener('change', e => {
     etat.repas[k] = { ...etat.repas[k], [t.dataset.slot]: t.value.trim() };
     sauver();
   } else if (t.dataset.plafond) { etat.plafonds[t.dataset.plafond] = Number(t.value) || 0; sauver(); rendre(); }
-  else if (t.dataset.pf || t.dataset.pfcfg) changePf(t);
+  else if (t.dataset.pfcfg) changePf(t);
   else if (t.id === 'importCsv') importerCsv(t.files[0]);
   else if (t.id === 'import') importer(t.files[0]);
 });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('.modal:not(:has(form.boite))')) fermerFeuille(); });
 document.addEventListener('submit', e => {
   const f = e.target;
   if (!f.dataset.form) return;
   e.preventDefault();
   FORMS[f.dataset.form](f);
   sauver();
+  if (f.closest('.modal')) fermerFeuille();
   rendre();
-});
-document.getElementById('tabs').addEventListener('click', e => {
-  const b = e.target.closest('button');
-  if (b) aller(b.dataset.vue);
+  if (f.dataset.form === 'course') document.querySelector('[data-form=course] [name=nom]')?.focus();
 });
 
 async function executer(el) {
-  const r = await ACTIONS[el.dataset.act](el);
+  const nom = el.dataset.act;
+  const avant = UNDO.has(nom) ? JSON.stringify(etat) : null;
+  const r = await ACTIONS[nom](el);
   if (r !== false && r !== 'vue') sauver();
+  if (avant && r !== false) fermerFeuille();
   rendre();
+  if (avant && r !== false) info('Supprimé', { label: 'Annuler', fn: () => { etat = { ...defaut(), ...JSON.parse(avant) }; sauver(); rendre(); } });
 }
 
 async function restaurer(texte) {
@@ -358,22 +395,26 @@ function importer(fichier) {
   lecteur.readAsText(fichier);
 }
 
-// ---------- Boîtes de dialogue (alert/confirm/prompt indisponibles dans certains contextes) ----------
-function info(msg) {
+// ---------- Notifications et dialogues (alert/confirm/prompt indisponibles dans certains contextes) ----------
+function info(msg, action) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
   const t = document.createElement('div');
-  t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg;
+  t.className = 'toast'; t.setAttribute('role', 'status');
+  t.innerHTML = `<span>${esc(msg)}</span>${action ? `<button type="button">${esc(action.label)}</button>` : ''}`;
+  t.querySelector('button')?.addEventListener('click', () => { action.fn(); t.remove(); });
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 4500);
+  setTimeout(() => t.remove(), action ? 6500 : 4000);
 }
 function dialogue({ titre = '', texte = '', champs = [], ok = 'Valider', annuler = true, copie = false }) {
   return new Promise(resolve => {
+    fermerFeuille();
     const fond = document.createElement('div');
     fond.className = 'modal';
     fond.innerHTML = `<form class="boite" role="dialog" aria-modal="true">
       ${titre ? `<h2>${esc(titre)}</h2>` : ''}${texte ? `<p>${esc(texte)}</p>` : ''}
       ${champs.map((c, i) => c.zone
         ? `<textarea id="dlg${i}" name="${c.nom}" rows="8" ${c.lecture ? 'readonly' : 'required'} aria-label="${esc(c.nom)}">${esc(c.valeur)}</textarea>`
-        : `<label>${esc(c.label)}<input id="dlg${i}" name="${c.nom}" type="number" step="any" value="${esc(c.valeur ?? '')}" required></label>`).join('')}
+        : fld(esc(c.label), `<input id="dlg${i}" name="${c.nom}" type="number" step="any" inputmode="decimal" value="${esc(c.valeur ?? '')}" required>`)).join('')}
       <div class="actions">${copie ? '<button type="button" class="btn sec" data-copie>Copier</button>' : ''}${annuler ? '<button type="button" class="btn sec" data-non>Annuler</button>' : ''}<button class="btn">${esc(ok)}</button></div></form>`;
     document.body.appendChild(fond);
     const f = fond.firstElementChild;
@@ -390,6 +431,24 @@ function dialogue({ titre = '', texte = '', champs = [], ok = 'Valider', annuler
   });
 }
 const confirmer = async texte => !!(await dialogue({ texte, ok: 'Confirmer' }));
+
+// ---------- Catégories de budget ----------
+const CATS = {
+  'Revenus': ['salaire', 'virement recu', 'caf', 'remboursement'],
+  'Courses': ['carrefour', 'leclerc', 'auchan', 'lidl', 'intermarche', 'monoprix', 'franprix', 'aldi', 'picard'],
+  'Logement': ['loyer', 'edf', 'engie', 'eau', 'assurance hab', 'internet', 'free', 'orange', 'sfr', 'bouygues'],
+  'Transport': ['sncf', 'ratp', 'navigo', 'essence', 'total', 'esso', 'uber', 'peage', 'parking'],
+  'Santé': ['pharmacie', 'docteur', 'medecin', 'mutuelle', 'dentiste'],
+  'Loisirs': ['netflix', 'spotify', 'cinema', 'restaurant', 'resto', 'amazon', 'fnac', 'decathlon'],
+  'Enfants': ['ecole', 'cantine', 'creche', 'peri', 'jouet'],
+  'Autre': [],
+};
+const NOMS_CATS = Object.keys(CATS);
+const devine = lib => {
+  const l = lib.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return NOMS_CATS.find(c => CATS[c].some(k => l.includes(k))) || 'Autre';
+};
+const eur = n => (Math.abs(n) < 0.005 ? 0 : n).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
 
 // ---------- Import CSV ----------
 function decoupe(ligne, sep) {
@@ -448,6 +507,6 @@ function importerCsv(fichier) {
   lecteur.readAsText(fichier);
 }
 
-document.getElementById('membreActif').hidden = true;
+
 rendre();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});

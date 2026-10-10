@@ -2,29 +2,24 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#4f46e5">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b6b5b">
 <title>App Famille</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="top">
-  <h1 id="titre">Accueil</h1>
+  <div><p class="date" id="sousTitre"></p><h1 id="titre">Accueil</h1></div>
   <select id="membreActif" title="Membre actif" aria-label="Membre actif"></select>
 </header>
+<div class="sous-nav" id="sousNav" hidden></div>
 <main id="vue"></main>
-<nav class="tabs" id="tabs">
-  <button data-vue="accueil"><span>🏠</span>Accueil</button>
-  <button data-vue="courses"><span>🛒</span>Courses</button>
-  <button data-vue="taches"><span>✅</span>Tâches</button>
-  <button data-vue="agenda"><span>📅</span>Agenda</button>
-  <button data-vue="repas"><span>🍽️</span>Repas</button>
-  <button data-vue="bourse"><span>📈</span>Bourse</button>
-  <button data-vue="budget"><span>💶</span>Budget</button>
-  <button data-vue="famille"><span>👨‍👩‍👧</span>Famille</button>
-</nav>
+<div id="fabZone"></div>
+<nav class="tabs" id="tabs" aria-label="Navigation principale"></nav>
 <script src="app.js"></script>
 <script src="bourse.js"></script>
 </body>

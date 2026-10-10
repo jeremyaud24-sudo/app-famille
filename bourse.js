@@ -183,9 +183,9 @@ const GRILLE = [
 ];
 
 // ---------- Rendu ----------
-const barres = (liste, total) => liste.map(([k, v]) => `<div style="margin-bottom:6px"><div class="bar" style="margin:0"><span>${esc(k)}</span><span>${pc(total ? v / total * 100 : 0)} · ${eur(v)}</span></div><div class="jauge"><i style="width:${total ? v / total * 100 : 0}%;background:var(--pri)"></i></div></div>`).join('');
+const barres = (liste, total) => liste.map(([k, v]) => `<div><div class="bar"><span>${esc(k)}</span><span class="num">${pc(total ? v / total * 100 : 0)} · ${eur(v)}</span></div><div class="jauge"><i style="width:${total ? v / total * 100 : 0}%;background:var(--pri)"></i></div></div>`).join('');
 const opts = (liste, sel) => liste.map(o => `<option${o === sel ? ' selected' : ''}>${o}</option>`).join('');
-const champ = (id, label, val, step = '1', extra = '') => `<label class="mut" style="display:block">${label}<br><input type="number" step="${step}" min="0" data-pfcfg="${id}" value="${val || ''}" ${extra} style="width:100%"></label>`;
+const champ = (id, label, val, step = '1', extra = '') => fld(label, `<input type="number" step="${step}" min="0" inputmode="decimal" data-pfcfg="${id}" value="${val || ''}" ${extra}>`);
 
 function rebalancement(S) {
   const c = cfg(), cibles = S.ps.filter(p => p.cible > 0);
@@ -195,7 +195,7 @@ function rebalancement(S) {
   let achat = lignes.map(l => Math.max(l.delta, 0));
   const sPos = somme(achat, x => x);
   if (c.versement > 0 && sPos > c.versement) achat = achat.map(x => x / sPos * c.versement);
-  return `<table style="width:100%;border-collapse:collapse"><tr class="mut"><td>Ligne</td><td>Actuel</td><td>Cible</td><td>Action</td></tr>
+  return `<table class="tab"><tr class="mut"><td>Ligne</td><td>Actuel</td><td>Cible</td><td>Action</td></tr>
     ${lignes.map((l, i) => {
       const mont = c.versement > 0 ? achat[i] : l.delta;
       const n = l.p.cours ? Math.floor(Math.abs(mont) / l.p.cours) : 0;
@@ -212,94 +212,147 @@ function projection() {
     return P * g + c.mensuel * (rm ? ((1 + rm) ** (12 * n) - 1) / rm : 12 * n);
   };
   const versé = P + c.mensuel * 12 * n;
-  return `<table style="width:100%;border-collapse:collapse"><tr class="mut"><td>Rendement/an</td><td>Capital final</td><td>En euros d'aujourd'hui (infl. 2 %)</td></tr>
+  return `<table class="tab"><tr class="mut"><td>Rendement/an</td><td>Capital final</td><td>En euros d'aujourd'hui (infl. 2 %)</td></tr>
     ${[Math.max(c.rendement - 2, 0), c.rendement, c.rendement + 2].map(r => `<tr><td>${pc(r)}</td><td><b>${eur(fv(r))}</b></td><td>${eur(fv(r) / 1.02 ** n)}</td></tr>`).join('')}</table>
     <p class="mut">Total versé : ${eur(versé)} sur ${n} ans. Simulation théorique : les marchés ne rapportent pas un taux constant et le capital peut baisser, y compris longtemps.</p>`;
 }
 
-VUES.bourse = function () {
-  const c = cfg(), S = pfCalc(), { ps, total, investi, pl } = S;
-  const insights = conseils(S);
-  const ico = { rouge: '🔴', orange: '🟠', vert: '🟢', info: 'ℹ️' };
+
+// ---------- Interface ----------
+let bTab = 'synthese', bRep = 'type';
+const B_TABS = [['synthese', 'Synthèse'], ['lignes', 'Lignes'], ['conseils', 'Conseils'], ['outils', 'Outils']];
+const REP = [['type', 'Type'], ['secteur', 'Secteur'], ['zone', 'Zone'], ['enveloppe', 'Enveloppe']];
+const SEV = { rouge: ['bad', 'Important'], orange: ['warn', 'À surveiller'], vert: ['ok', 'Positif'], info: ['', 'Info'] };
+const COUL_PF = ['#0b8f78', '#d98a1c', '#3b73e0', '#c23b63', '#8a5cd6', '#7b8a84'];
+const pillPl = (n, p) => `<span class="pill ${n >= 0 ? 'ok' : 'bad'}">${n >= 0 ? '▲' : '▼'} ${eur(Math.abs(n))} · ${pc(Math.abs(p))}</span>`;
+const q6 = n => Number((+n).toFixed(6));
+const r4 = n => Number((+n).toFixed(4));
+const initiales = t => esc(String(t).slice(0, 2).toUpperCase());
+
+function bSynthese(S) {
+  const c = cfg(), { ps, total, investi, pl } = S;
+  const trie = [...ps].sort((a, b) => b.val - a.val);
+  const segs = trie.slice(0, 5).map(p => [p.ticker, p.val]);
+  const reste = somme(trie.slice(5), p => p.val);
+  if (reste > 0) segs.push(['Autres', reste]);
+  const ordre = { rouge: 0, orange: 1, vert: 2, info: 3 };
+  const cons = conseils(S).sort((a, b) => ordre[a[0]] - ordre[b[0]]);
+  const retenir = cons.filter(x => x[0] !== 'info').slice(0, 3);
+  const etape = proposition(S)[0];
+  const vieux = ps.filter(p => !p.maj || (Date.now() - parse(p.maj)) / 864e5 > 7).length;
+  return `
+    <section class="hero"><p class="hero-lbl">Valeur du portefeuille</p><p class="hero-val">${eur(total)}</p>
+      ${pillPl(pl, investi ? pl / investi * 100 : 0)}
+      <p class="hero-sub">Investi ${eur(investi)}${c.realise ? ` · Réalisé ${eur(c.realise)}` : ''}</p></section>
+    <section class="carte"><h2>Répartition par ligne</h2>
+      <div class="empile" role="img" aria-label="Répartition par ligne">${segs.map(([k, v], i) => `<i style="flex:${v};background:${COUL_PF[i]}" title="${esc(k)}"></i>`).join('')}</div>
+      <ul class="legende">${segs.map(([k, v], i) => `<li><i style="background:${COUL_PF[i]}"></i>${esc(k)} <b class="num">${pc(total ? v / total * 100 : 0)}</b></li>`).join('')}</ul></section>
+    ${retenir.length ? `<section class="carte"><div class="carte-tete"><h2>À retenir</h2><button class="lien" data-act="btab" data-v="conseils">Tous les conseils</button></div>
+      ${retenir.map(([n, t]) => `<div class="cons"><span class="pill ${SEV[n][0]}">${SEV[n][1]}</span><p>${esc(t)}</p></div>`).join('')}</section>` : ''}
+    ${etape ? `<section class="carte"><div class="carte-tete"><h2>Prochaine étape</h2><button class="lien" data-act="btab" data-v="conseils">Détail</button></div>
+      <p><b>${esc(etape[0])}</b></p><p class="mut">${esc(etape[1])}</p></section>` : ''}
+    ${vieux ? `<button class="carte" data-act="ouvrir" data-sheet="cours" style="text-align:left"><b>${vieux} cours à mettre à jour</b><small>Les analyses sont fiables avec des cours récents. Touchez pour tout mettre à jour d’un coup.</small></button>` : ''}`;
+}
+
+function bLignes(S) {
+  const { ps, total } = S, trie = [...ps].sort((a, b) => b.val - a.val);
+  const groupes = groupe(ps, bRep);
+  return `
+    <div class="rangee"><button class="btn sec" data-act="ouvrir" data-sheet="cours">Mettre à jour les cours</button></div>
+    <section class="carte"><ul class="liste">
+      ${trie.map(p => `<li><button class="rang" data-act="ouvrir" data-sheet="ligne" data-id="${p.id}" aria-label="${esc(p.ticker)}, détail">
+        <span class="av neutre">${initiales(p.ticker)}</span>
+        <span class="rang-txt"><b>${esc(p.ticker)}</b><small>${esc(p.nom || p.type)} · ${pc(p.poids)}</small></span>
+        <span class="droite"><b class="num">${eur(p.val)}</b><span class="pill ${p.pl >= 0 ? 'ok' : 'bad'}">${p.pl >= 0 ? '▲' : '▼'} ${pc(Math.abs(p.plPct))}</span></span></button></li>`).join('')}
+    </ul></section>
+    <section class="carte"><h2>Répartition</h2>
+      <div class="chips" role="group" aria-label="Critère de répartition">${REP.map(([k, n]) => `<button data-act="brep" data-v="${k}" aria-pressed="${bRep === k}">${n}</button>`).join('')}</div>
+      ${barres(groupes, total)}</section>`;
+}
+
+function bConseils(S) {
+  const ordre = { rouge: 0, orange: 1, vert: 2, info: 3 };
+  const cons = conseils(S).sort((a, b) => ordre[a[0]] - ordre[b[0]]);
+  const prop = proposition(S), idees = prochainInvest(S);
+  return `
+    <section class="carte"><h2>Proposition d’action</h2>
+      ${prop.map(([t, d], i) => `<div class="etape"><b class="n">${i + 1}</b><div><b>${esc(t)}</b><p class="mut">${esc(d)}</p></div></div>`).join('') || '<p class="vide">Ajoutez vos lignes pour obtenir une proposition.</p>'}
+      ${cfg().versement > 0 ? '' : '<button class="btn sec" data-act="btab" data-v="outils">Saisir un versement prévu</button>'}
+      <small>Calculée à partir de vos données et de règles générales de répartition. Ce n’est pas un conseil en investissement personnalisé : vous restez décisionnaire.</small></section>
+    <section class="carte"><h2>Analyse</h2>
+      ${cons.map(([n, t]) => `<div class="cons"><span class="pill ${SEV[n][0]}">${SEV[n][1]}</span><p>${esc(t)}</p></div>`).join('')}</section>
+    <section class="carte"><h2>Où investir ensuite</h2>
+      ${idees.map(([t, d]) => `<div class="cons"><p><b>${esc(t)}</b><br><span class="mut">${esc(d)}</span></p></div>`).join('')}
+      <details><summary>Grille pour choisir une action</summary>
+        <ul class="liste">${GRILLE.map(g => `<li class="rang" style="min-height:0"><span class="rang-txt">${esc(g)}</span></li>`).join('')}</ul>
+        <small>Si vous ne pouvez pas valider la plupart des points, un ETF large reste souvent le choix le plus sûr.</small></details>
+      <small>L’application ne désigne aucun titre à acheter : personne ne prédit les cours. Ces pistes indiquent ce qui manque à votre portefeuille.</small></section>`;
+}
+
+function bOutils(S) {
+  const c = cfg(), { ps, total, investi } = S;
   const revenu = somme(ps, p => p.qte * (p.div || 0));
   const fraisAn = somme(ps, p => p.val * (p.frais || 0) / 100);
   const imposable = somme(ps.filter(p => ENV_IMPOSABLES.includes(p.enveloppe) && p.pl > 0), p => p.pl);
-  const trie = [...ps].sort((a, b) => b.val - a.val);
   return `
-    <div class="card">
-      <div class="bar"><span>Valeur</span><b class="score">${eur(total)}</b></div>
-      <div class="bar"><span>Investi</span><b>${eur(investi)}</b></div>
-      <div class="bar"><span>Plus/moins-value latente</span><b style="color:${couleurPl(pl)}">${eur(pl)} (${pc(investi ? pl / investi * 100 : 0)})</b></div>
-      ${c.realise ? `<div class="bar"><span>Réalisé (ventes saisies)</span><b style="color:${couleurPl(c.realise)}">${eur(c.realise)}</b></div>` : ''}
-    </div>
-    <div class="card"><h2>🧭 Analyse et conseils</h2>
-      <ul class="list">${insights.map(([n, t]) => `<li style="align-items:flex-start"><span>${ico[n]}</span><div class="grow">${esc(t)}</div></li>`).join('')}</ul>
-      <p class="mut">Informations générales issues de règles courantes de gestion de portefeuille. Ce n'est pas un conseil en investissement personnalisé : un placement comporte un risque de perte en capital.</p>
-    </div>
-        <div class="card"><h2>🎯 Où investir ensuite</h2>
-      <ul class="list">${prochainInvest(S).map(([t, d]) => `<li style="align-items:flex-start"><div class="grow"><b>${esc(t)}</b><br><span class="mut">${esc(d)}</span></div></li>`).join('') || '<li class="vide">Ajoutez vos lignes pour obtenir des pistes.</li>'}</ul>
-      <details style="margin-top:8px"><summary><b>Grille pour choisir une action</b></summary>
-        <ul class="list">${GRILLE.map(g => `<li style="align-items:flex-start"><span>☐</span><div class="grow">${esc(g)}</div></li>`).join('')}</ul>
-        <p class="mut">Si vous ne pouvez pas cocher la plupart des cases, l'ETF reste souvent le choix le plus sûr.</p></details>
-      <p class="mut">L'application ne désigne volontairement aucun titre à acheter : personne ne prédit les cours, et une recommandation individuelle suppose de connaître votre situation. Ces pistes indiquent ce qui manque à votre portefeuille.</p>
-    </div>
-    <div class="card"><h2>🧾 Proposition d'action</h2>
-      <ol style="margin:0;padding-left:20px">${proposition(S).map(([t, d]) => `<li style="margin-bottom:8px"><b>${esc(t)}</b><br><span class="mut">${esc(d)}</span></li>`).join('') || '<li class="mut">Ajoutez vos lignes pour obtenir une proposition.</li>'}</ol>
-      <p class="mut">Proposition calculée à partir de vos données et de règles générales de répartition. Elle illustre une démarche possible, elle ne constitue pas un conseil en investissement personnalisé. Vous restez décisionnaire.</p>
-    </div>
-    <div class="card"><h2>📊 Répartition</h2>
-      ${ps.length ? `<h3 class="mut">Par support</h3>${barres(trie.map(p => [p.ticker, p.val]), total)}
-      <h3 class="mut">Par type</h3>${barres(groupe(ps, 'type'), total)}
-      <h3 class="mut">Par secteur</h3>${barres(groupe(ps, 'secteur'), total)}
-      <h3 class="mut">Par zone</h3>${barres(groupe(ps, 'zone'), total)}
-      <h3 class="mut">Par enveloppe</h3>${barres(groupe(ps, 'enveloppe'), total)}` : '<p class="vide">Aucune ligne</p>'}
-    </div>
-    <div class="card"><h2>📈 Lignes</h2><ul class="list">
-      ${trie.map(p => `<li style="flex-wrap:wrap">
-        <div class="grow"><b>${esc(p.ticker)}</b> <span class="mut">${esc(p.nom || '')} · ${p.type} · ${p.enveloppe} · ${p.zone}</span><br>
-          <span class="mut">${p.qte} × ${eur(p.cours)} (PRU ${eur(p.pru)}) · ${pc(p.poids)}</span><br>
-          <b>${eur(p.val)}</b> <span style="color:${couleurPl(p.pl)}">${eur(p.pl)} (${pc(p.plPct)})</span></div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
-          <input type="number" step="0.01" data-pf="cours" data-id="${p.id}" value="${p.cours}" style="width:90px" title="Cours actuel" aria-label="Cours ${esc(p.ticker)}">
-          <input type="number" step="1" min="0" max="100" data-pf="cible" data-id="${p.id}" value="${p.cible || ''}" placeholder="cible %" style="width:70px" aria-label="Cible ${esc(p.ticker)}">
-          <button class="btn sec" data-act="pf-achat" data-id="${p.id}">Renforcer</button>
-          <button class="btn sec" data-act="pf-vente" data-id="${p.id}">Vendre</button>
-          <button class="btn del" data-act="pf-del" data-id="${p.id}" aria-label="Supprimer">✕</button></div></li>`).join('') || '<li class="vide">Ajoutez votre première ligne ci-dessous</li>'}
-    </ul></div>
-    <div class="card"><h2>⚖️ Rééquilibrage</h2>
-      ${champ('versement', 'Versement prévu (€)', c.versement, '10')}
-      <div style="margin-top:8px">${rebalancement(S)}</div></div>
-    <div class="card"><h2>💰 Dividendes, frais et fiscalité</h2>
-      <div class="bar"><span>Dividendes annuels estimés</span><b>${eur(revenu)}</b></div>
-      <div class="bar"><span>Rendement sur valeur / sur coût</span><b>${pc(total ? revenu / total * 100 : 0)} / ${pc(investi ? revenu / investi * 100 : 0)}</b></div>
-      <div class="bar"><span>Frais annuels estimés (ETF/fonds)</span><b>${eur(fraisAn)}</b></div>
-      <div class="bar"><span>Impôt estimé si vente des plus-values hors PEA/AV/PER</span><b>${eur(imposable * c.pfu / 100)}</b></div>
-      <p class="mut">Taux d'imposition utilisé : ${c.pfu} % (modifiable dans les paramètres, à vérifier selon la réglementation en vigueur et votre situation).</p></div>
-    <div class="card"><h2>🔮 Simulation sur le long terme</h2>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
-        ${champ('mensuel', 'Versement mensuel (€)', c.mensuel, '10')}${champ('rendement', 'Rendement/an (%)', c.rendement, '0.5')}${champ('annees', 'Durée (ans)', c.annees, '1', 'max="60"')}</div>
-      ${projection()}</div>
-    <details class="card"><summary><b>Ajouter une ligne</b></summary>
-      <form data-form="pos" class="formgrid" style="margin-top:10px">
-        <input type="text" name="ticker" placeholder="Ticker ou nom court (ex : CW8)" required>
-        <input type="text" name="nom" placeholder="Nom complet (optionnel)">
-        <select name="type" aria-label="Type">${opts(TYPES_PF)}</select>
-        <select name="enveloppe" aria-label="Enveloppe">${opts(ENVELOPPES)}</select>
-        <select name="secteur" aria-label="Secteur">${opts(SECTEURS)}</select>
-        <select name="zone" aria-label="Zone">${opts(ZONES)}</select>
-        <input type="number" name="qte" step="any" min="0" placeholder="Quantité" required>
-        <input type="number" name="pru" step="any" min="0" placeholder="Prix de revient (PRU)" required>
-        <input type="number" name="cours" step="any" min="0" placeholder="Cours actuel" required>
-        <input type="number" name="div" step="any" min="0" placeholder="Dividende annuel / titre">
-        <input type="number" name="frais" step="0.01" min="0" placeholder="Frais annuels % (ETF)">
-        <input type="number" name="cible" step="1" min="0" max="100" placeholder="Cible % du portefeuille">
-        <button class="btn">Ajouter</button></form></details>
-    <details class="card"><summary><b>Paramètres</b></summary><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px">
-      ${champ('depenses', 'Dépenses mensuelles du foyer (€)', c.depenses, '50')}${champ('epargne', 'Épargne de précaution disponible (€)', c.epargne, '100')}${champ('pfu', 'Taux d\'impôt sur plus-values (%)', c.pfu, '0.1')}</div></details>`;
+    <section class="carte"><h2>Rééquilibrage</h2>${champ('versement', 'Versement prévu (€)', c.versement, '10')}${rebalancement(S)}</section>
+    <section class="carte"><h2>Dividendes, frais, fiscalité</h2>
+      <div class="kv"><span>Dividendes annuels estimés</span><b>${eur(revenu)}</b></div>
+      <div class="kv"><span>Rendement sur valeur / sur coût</span><b>${pc(total ? revenu / total * 100 : 0)} / ${pc(investi ? revenu / investi * 100 : 0)}</b></div>
+      <div class="kv"><span>Frais annuels (ETF, fonds)</span><b>${eur(fraisAn)}</b></div>
+      <div class="kv"><span>Impôt estimé si vente des plus-values hors PEA/AV/PER</span><b>${eur(imposable * c.pfu / 100)}</b></div>
+      <small>Taux utilisé : ${c.pfu} %. À vérifier selon la réglementation en vigueur et votre situation.</small></section>
+    <section class="carte"><h2>Simulation long terme</h2>
+      <div class="duo">${champ('mensuel', 'Versement mensuel (€)', c.mensuel, '10')}${champ('rendement', 'Rendement/an (%)', c.rendement, '0.5')}</div>
+      ${champ('annees', 'Durée (ans)', c.annees, '1', 'max="60"')}${projection()}</section>
+    <section class="carte"><h2>Paramètres</h2>
+      <div class="duo">${champ('depenses', 'Dépenses mensuelles du foyer (€)', c.depenses, '50')}${champ('epargne', 'Épargne de précaution (€)', c.epargne, '100')}</div>
+      ${champ('pfu', 'Taux d’impôt sur plus-values (%)', c.pfu, '0.1')}</section>`;
+}
+
+VUES.bourse = function () {
+  const S = pfCalc();
+  if (!S.ps.length) return `<section class="carte"><h2>Votre portefeuille</h2><p class="mut">Ajoutez vos lignes (actions, ETF…) pour suivre la valeur, la répartition et recevoir des pistes d’amélioration. Les cours sont saisis à la main.</p>
+    <button class="btn" data-act="ouvrir" data-sheet="pos">Ajouter une première ligne</button></section>`;
+  const corps = { synthese: bSynthese, lignes: bLignes, conseils: bConseils, outils: bOutils }[bTab](S);
+  return `<div class="chips" role="tablist" aria-label="Sections de la Bourse">${B_TABS.map(([k, n]) => `<button role="tab" data-act="btab" data-v="${k}" aria-selected="${bTab === k}">${n}</button>`).join('')}</div>${corps}`;
+};
+
+// ---------- Feuilles de saisie ----------
+SHEETS.pos = () => ({ titre: 'Ajouter une ligne', corps: `<form class="formulaire" data-form="pos">
+  <div class="duo">${fld('Ticker ou nom court', '<input name="ticker" required autocomplete="off" placeholder="CW8">')}${fld('Nom (facultatif)', '<input name="nom" autocomplete="off">')}</div>
+  <div class="duo">${fld('Quantité', '<input type="number" name="qte" step="any" min="0" required inputmode="decimal">')}${fld('Prix de revient (€)', '<input type="number" name="pru" step="any" min="0" required inputmode="decimal">')}</div>
+  ${fld('Cours actuel (€)', '<input type="number" name="cours" step="any" min="0" required inputmode="decimal">')}
+  <div class="duo">${fld('Type', `<select name="type">${opts(TYPES_PF)}</select>`)}${fld('Enveloppe', `<select name="enveloppe">${opts(ENVELOPPES)}</select>`)}</div>
+  <div class="duo">${fld('Secteur', `<select name="secteur">${opts(SECTEURS)}</select>`)}${fld('Zone', `<select name="zone">${opts(ZONES)}</select>`)}</div>
+  <details><summary>Options (dividende, frais, cible)</summary><div class="formulaire" style="padding-top:8px">
+    <div class="duo">${fld('Dividende annuel / titre (€)', '<input type="number" name="div" step="any" min="0" inputmode="decimal">')}${fld('Frais annuels (%)', '<input type="number" name="frais" step="0.01" min="0" inputmode="decimal">')}</div>
+    ${fld('Cible dans le portefeuille (%)', '<input type="number" name="cible" step="1" min="0" max="100" inputmode="decimal">')}</div></details>
+  <button class="btn plein">Ajouter la ligne</button></form>` });
+
+SHEETS.cours = () => ({ titre: 'Mettre à jour les cours', corps: `<form class="formulaire" data-form="cours">
+  <p class="mut">Saisissez le cours actuel de chaque ligne, en euros.</p>
+  ${etat.pf.map(p => fld(`${esc(p.ticker)}${p.maj ? ` · mis à jour le ${fmtDate(p.maj)}` : ''}`, `<input type="number" name="c_${p.id}" step="any" min="0" value="${r4(p.cours)}" inputmode="decimal" required>`)).join('')}
+  <button class="btn plein">Enregistrer les cours</button></form>` });
+
+SHEETS.ligne = d => {
+  const p = pfCalc().ps.find(x => x.id === d.id);
+  if (!p) return { titre: 'Ligne', corps: '<p>Ligne introuvable.</p>' };
+  return { titre: p.ticker, corps: `
+    <div><b class="score">${eur(p.val)}</b> ${pillPl(p.pl, p.plPct)}</div>
+    <small>${q6(p.qte)} × ${eur(p.cours)} · PRU ${eur(p.pru)} · ${pc(p.poids)} du portefeuille</small>
+    <small>${esc(p.nom ? p.nom + ' · ' : '')}${esc(p.type)} · ${esc(p.enveloppe)} · ${esc(p.secteur)} · ${esc(p.zone)}</small>
+    <form class="formulaire" data-form="pos-edit"><input type="hidden" name="id" value="${p.id}">
+      <div class="duo">${fld('Cours actuel (€)', `<input type="number" name="cours" step="any" min="0" value="${r4(p.cours)}" inputmode="decimal" required>`)}${fld('Cible (%)', `<input type="number" name="cible" step="1" min="0" max="100" value="${p.cible || ''}" inputmode="decimal">`)}</div>
+      <div class="duo">${fld('Dividende annuel / titre (€)', `<input type="number" name="div" step="any" min="0" value="${p.div || ''}" inputmode="decimal">`)}${fld('Frais annuels (%)', `<input type="number" name="frais" step="0.01" min="0" value="${p.frais || ''}" inputmode="decimal">`)}</div>
+      <button class="btn plein">Enregistrer</button></form>
+    <div class="rangee"><button class="btn sec" data-act="pf-achat" data-id="${p.id}">Renforcer</button><button class="btn sec" data-act="pf-vente" data-id="${p.id}">Vendre</button><button class="btn danger" data-act="pf-del" data-id="${p.id}">Supprimer</button></div>` };
 };
 
 // ---------- Actions ----------
-ACTIONS['pf-del'] = async el => { if (!await confirmer('Supprimer cette ligne ?')) return false; etat.pf = etat.pf.filter(p => p.id !== el.dataset.id); };
+ACTIONS.btab = el => { bTab = el.dataset.v; window.scrollTo(0, 0); return 'vue'; };
+ACTIONS.brep = el => { bRep = el.dataset.v; return 'vue'; };
+ACTIONS['pf-del'] = el => { etat.pf = etat.pf.filter(p => p.id !== el.dataset.id); };
 ACTIONS['pf-achat'] = async el => {
   const p = etat.pf.find(x => x.id === el.dataset.id);
   const r = await dialogue({ titre: `Renforcer ${p.ticker}`, champs: [{ nom: 'q', label: 'Quantité achetée' }, { nom: 'px', label: 'Prix unitaire (frais inclus)', valeur: p.cours }], ok: 'Enregistrer' });
@@ -307,6 +360,7 @@ ACTIONS['pf-achat'] = async el => {
   if (!q || q <= 0 || px === null || px < 0) return false;
   p.pru = (p.qte * p.pru + q * px) / (p.qte + q);
   p.qte += q;
+  fermerFeuille();
 };
 ACTIONS['pf-vente'] = async el => {
   const p = etat.pf.find(x => x.id === el.dataset.id);
@@ -317,20 +371,25 @@ ACTIONS['pf-vente'] = async el => {
   cfg().realise += (px - p.pru) * q;
   p.qte -= q;
   if (p.qte <= 0) etat.pf = etat.pf.filter(x => x.id !== p.id);
+  fermerFeuille();
 };
 FORMS.pos = f => etat.pf.push({
   id: uid(), ticker: f.ticker.value.trim().toUpperCase(), nom: f.nom.value.trim(), type: f.type.value, enveloppe: f.enveloppe.value,
   secteur: f.secteur.value, zone: f.zone.value, qte: Number(f.qte.value), pru: Number(f.pru.value), cours: Number(f.cours.value),
   div: Number(f.div.value) || 0, frais: Number(f.frais.value) || 0, cible: Number(f.cible.value) || 0, maj: aujourdhui(),
 });
+FORMS['pos-edit'] = f => {
+  const p = etat.pf.find(x => x.id === f.id.value);
+  if (!p) return;
+  const cours = Number(f.cours.value) || 0;
+  if (cours !== p.cours) p.maj = aujourdhui();
+  Object.assign(p, { cours, cible: Number(f.cible.value) || 0, div: Number(f.div.value) || 0, frais: Number(f.frais.value) || 0 });
+};
+FORMS.cours = f => etat.pf.forEach(p => {
+  const v = Number(f['c_' + p.id].value);
+  if (!isNaN(v)) { p.cours = v; p.maj = aujourdhui(); }
+});
 function changePf(t) {
-  if (t.dataset.pfcfg) cfg()[t.dataset.pfcfg] = Number(t.value) || 0;
-  else {
-    const p = etat.pf.find(x => x.id === t.dataset.id);
-    if (!p) return;
-    if (t.dataset.pf === 'cours') { p.cours = Number(t.value) || 0; p.maj = aujourdhui(); }
-    else p.cible = Number(t.value) || 0;
-  }
+  cfg()[t.dataset.pfcfg] = Number(t.value) || 0;
   sauver(); rendre();
 }
-TITRES.bourse = 'Bourse';
