@@ -15,6 +15,7 @@ Application familiale installable (PWA), en français, sans dépendances ni buil
 - **Bourse** : suivi du portefeuille (cours saisis à la main), répartitions, conseils automatiques, rééquilibrage, dividendes, frais, fiscalité estimée, simulation long terme.
 - **Recherche** : loupe en haut à droite, cherche dans toute l'application.
 - **Récurrence** : tâches et événements répétés, rappels sur l'accueil, opérations de budget récurrentes, objectifs d'épargne, historique du portefeuille, dividendes reçus, lignes en dollars.
+- **Prêts** : échéancier, capital restant dû, intérêts, remboursement anticipé, et alerte rachat/renégociation d'après un taux du marché saisi à la main.
 - **Famille** : membres, dates de naissance, export/import JSON des données.
 
 Les données sont stockées dans le navigateur (`localStorage`). L'export JSON sert de sauvegarde ou pour transférer vers un autre appareil.

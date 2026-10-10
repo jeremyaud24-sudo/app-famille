@@ -6,7 +6,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 // ---------- Données ----------
-const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [] });
+const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {} });
 let etat = charger();
 
 function charger() {
@@ -114,12 +114,12 @@ const SECTIONS = {
   accueil: { titre: 'Accueil', vues: ['accueil'] },
   agenda: { titre: 'Agenda', vues: ['agenda'] },
   listes: { titre: 'Listes', vues: ['courses', 'taches', 'repas'], noms: { courses: 'Courses', taches: 'Tâches', repas: 'Repas' } },
-  argent: { titre: 'Argent', vues: ['bourse', 'budget'], noms: { bourse: 'Bourse', budget: 'Budget' } },
+  argent: { titre: 'Argent', vues: ['bourse', 'budget', 'prets'], noms: { bourse: 'Bourse', budget: 'Budget', prets: 'Prêts' } },
   famille: { titre: 'Famille', vues: ['famille'] },
 };
 const NOMS_ONGLETS = { accueil: 'Accueil', agenda: 'Agenda', listes: 'Listes', argent: 'Argent', famille: 'Famille' };
 const AJOUT = { // bouton « + » flottant par vue
-  taches: ['tache', 'Tâche'], agenda: ['event', 'Événement'], bourse: ['pos', 'Ligne'], budget: ['tx', 'Opération'], famille: ['membre', 'Membre'],
+  taches: ['tache', 'Tâche'], agenda: ['event', 'Événement'], bourse: ['pos', 'Ligne'], budget: ['tx', 'Opération'], prets: ['pret', 'Prêt'], famille: ['membre', 'Membre'],
 };
 let section = 'accueil';
 const sous = { listes: 'courses', argent: 'bourse' };
@@ -171,6 +171,7 @@ const VUES = {
     const rappels = [
       ...aFaire.filter(t => t.echeance && t.echeance <= auj).map(t => [t.titre, t.echeance < auj ? 'En retard' : 'Aujourd’hui', t.echeance < auj ? 'bad' : 'warn', 'taches']),
       ...evenementsDu(demain).map(e => [e.titre, 'Demain' + (e.heure ? ' ' + e.heure : ''), 'pri', 'agenda']),
+      ...(typeof pretsAlertes === 'function' ? pretsAlertes() : []),
     ];
     return `
       ${etat.membres.length ? '' : `<section class="carte"><h2>Bienvenue</h2><p class="mut">Créez votre foyer pour partager courses, tâches et agenda. Chaque membre a sa couleur.</p><button class="btn" data-act="ouvrir" data-sheet="membre">Ajouter un premier membre</button></section>`}
@@ -370,6 +371,7 @@ function rechercher(q) {
   etat.objectifs.filter(o => m(o.nom)).forEach(o => add('Budget', o.nom, 'Objectif d’épargne', { vue: 'budget' }));
   etat.recurrents.filter(r => m(r.libelle)).forEach(r => add('Budget', r.libelle, 'Opération récurrente', { vue: 'budget' }));
   etat.pf.filter(p => m(p.ticker) || m(p.nom)).forEach(p => add('Bourse', p.ticker + (p.nom ? ' · ' + p.nom : ''), 'Ligne du portefeuille', { vue: 'bourse', onglet: 'lignes' }));
+  etat.prets.filter(x => m(x.nom)).forEach(x => add('Prêts', x.nom, 'Prêt immobilier ou crédit', { vue: 'prets' }));
   etat.membres.filter(x => m(x.nom)).forEach(x => add('Famille', x.nom, 'Membre', { vue: 'famille' }));
   return R;
 }
@@ -399,7 +401,7 @@ function feuille(titre, corps) {
 const fermerFeuille = () => document.querySelectorAll('.modal').forEach(m => m.remove());
 
 // ---------- Actions ----------
-const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del']);
+const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del', 'pret-del']);
 const ACTIONS = {
   'ouvrir': el => { ouvrirFeuille(el.dataset.sheet, el.dataset); return 'vue'; },
   'filtre': el => { filtreT = el.dataset.v; return 'vue'; },
@@ -531,6 +533,7 @@ document.addEventListener('change', e => {
     sauver();
   } else if (t.dataset.plafond) { etat.plafonds[t.dataset.plafond] = Number(t.value) || 0; sauver(); rendre(); }
   else if (t.dataset.pfcfg) changePf(t);
+  else if (t.dataset.pretcfg) changePret(t);
   else if (t.id === 'importCsv') importerCsv(t.files[0]);
   else if (t.id === 'import') importer(t.files[0]);
 });
