@@ -133,6 +133,8 @@ const ICONES = {
   listes: '<path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 6l1.3 1.3L7 5M3.5 12l1.3 1.3L7 11M3.5 18l1.3 1.3L7 17"/>',
   argent: '<path d="M4 19V5M4 19h16"/><path d="M8 15l4-4 3 3 5-6"/>',
   famille: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15.5 14.2c3 0 5.5 2 5.5 5.3"/>',
+  planning: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M8 15l2.5 2.5L16 13"/>',
+  maison: '<path d="M4 10h16l-1.4 8.2a2 2 0 0 1-2 1.8H7.4a2 2 0 0 1-2-1.8z"/><path d="M8.5 10l3.5-6 3.5 6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
   sport: '<path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/>',
@@ -143,18 +145,27 @@ const ico = (n, t = 22) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" 
 // ---------- Navigation ----------
 const SECTIONS = {
   accueil: { titre: 'Accueil', vues: ['accueil'] },
-  agenda: { titre: 'Agenda', vues: ['agenda'] },
-  listes: { titre: 'Listes', vues: ['courses', 'taches', 'repas', 'recettes'], noms: { courses: 'Courses', taches: 'Tâches', repas: 'Repas', recettes: 'Recettes' } },
-  argent: { titre: 'Argent', vues: ['bourse', 'budget', 'prets', 'patrimoine'], noms: { bourse: 'Bourse', budget: 'Budget', prets: 'Prêts', patrimoine: 'Patrimoine' } },
-  sport: { titre: 'Sport', vues: ['suivisport', 'plansport', 'conseilssport'], noms: { suivisport: 'Suivi', plansport: 'Plan', conseilssport: 'Conseils' } },
-  famille: { titre: 'Famille', vues: ['membres', 'carnet', 'voyages', 'cadeaux'], noms: { membres: 'Membres', carnet: 'Carnet', voyages: 'Voyages', cadeaux: 'Cadeaux' } },
+  planning: { titre: 'Planning', vues: ['agenda', 'taches', 'voyages', 'cadeaux'], noms: { agenda: 'Agenda', taches: 'Tâches', voyages: 'Voyages', cadeaux: 'Cadeaux' } },
+  maison: { titre: 'Maison', vues: ['courses', 'repas', 'recettes', 'carnet'], noms: { courses: 'Courses', repas: 'Repas', recettes: 'Recettes', carnet: 'Carnet' } },
+  argent: { titre: 'Argent', vues: ['budget', 'patrimoine', 'bourse', 'prets'], noms: { budget: 'Budget', patrimoine: 'Patrimoine', bourse: 'Bourse', prets: 'Prêts' } },
+  sport: { titre: 'Sport', vues: ['suivisport', 'plansport', 'conseilssport'], noms: { suivisport: 'Suivi', plansport: 'Programme', conseilssport: 'Conseils' } },
+  famille: { titre: 'Famille et réglages', vues: ['membres'], cache: true }, // hors barre : accessible par l'avatar en haut
 };
-const NOMS_ONGLETS = { accueil: 'Accueil', agenda: 'Agenda', listes: 'Listes', argent: 'Argent', sport: 'Sport', famille: 'Famille' };
+const NOMS_ONGLETS = { accueil: 'Accueil', planning: 'Planning', maison: 'Maison', argent: 'Argent', sport: 'Sport' };
 const AJOUT = { // bouton « + » flottant par vue
   taches: ['tache', 'Tâche'], agenda: ['event', 'Événement'], bourse: ['pos', 'Ligne'], budget: ['tx', 'Opération'], prets: ['pret', 'Prêt'], recettes: ['recette-form', 'Recette'], suivisport: ['seance', 'Séance'], patrimoine: ['epargne', 'Épargne'], plansport: ['plan-item', 'Séance prévue'], carnet: ['carnet', 'Fiche'], voyages: ['voyage', 'Voyage'], cadeaux: ['cadeau', 'Idée'], membres: ['membre', 'Membre'],
 };
 let section = 'accueil';
-const sous = { listes: 'courses', argent: 'bourse', famille: 'membres', sport: 'suivisport' };
+const sous = { planning: 'agenda', maison: 'courses', argent: 'budget', famille: 'membres', sport: 'suivisport' };
+const NAV_CLE = 'app-famille-nav';
+// On rouvre toujours l'appli sur l'accueil, mais chaque rubrique retrouve sa dernière page
+function sauverNav() { try { localStorage.setItem(NAV_CLE, JSON.stringify({ sous })); } catch {} }
+function restaurerNav() {
+  try {
+    const n = JSON.parse(localStorage.getItem(NAV_CLE) || 'null');
+    if (n && n.sous) for (const [s, v] of Object.entries(n.sous)) if (SECTIONS[s] && SECTIONS[s].vues.includes(v)) sous[s] = v;
+  } catch {}
+}
 let jourSel = aujourdhui();
 let moisAff = new Date(); moisAff.setDate(1);
 let semaineAff = lundi(new Date());
@@ -166,6 +177,7 @@ function aller(v) {
   if (SECTIONS[v]) section = v;
   else { section = Object.keys(SECTIONS).find(s => SECTIONS[s].vues.includes(v)); sous[section] = v; }
   fermerFeuille();
+  sauverNav();
   rendre();
   window.scrollTo(0, 0);
 }
@@ -174,16 +186,15 @@ function rendre() {
   const S = SECTIONS[section], v = vueCourante(), actif = membre(etat.actif);
   document.getElementById('titre').textContent = section === 'accueil' ? `Bonjour${actif ? ', ' + actif.nom : ''}` : S.titre;
   document.getElementById('sousTitre').textContent = section === 'accueil' ? fmtLong(aujourdhui()) : '';
-  document.getElementById('tabs').innerHTML = Object.keys(SECTIONS).map(s =>
+  document.getElementById('tabs').innerHTML = Object.keys(SECTIONS).filter(s => !SECTIONS[s].cache).map(s =>
     `<button data-goto="${s}"${s === section ? ' aria-current="page"' : ''}><span class="pastille">${ico(s)}</span>${NOMS_ONGLETS[s]}</button>`).join('');
   const nav = document.getElementById('sousNav');
   nav.hidden = S.vues.length < 2;
   nav.innerHTML = S.vues.length < 2 ? '' : `<div class="seg${S.vues.length > 3 ? ' dense' : ''}" role="tablist">${S.vues.map(x =>
     `<button role="tab" data-goto="${x}" aria-selected="${x === v}">${S.noms[x]}</button>`).join('')}</div>`;
   document.getElementById('btnRech').innerHTML = ico('recherche');
-  const sel = document.getElementById('membreActif');
-  sel.innerHTML = optionsMembres(etat.actif, 'Qui êtes-vous ?');
-  sel.hidden = !etat.membres.length;
+  document.getElementById('btnProfil').innerHTML = actif ? avatar(actif.id) : ico('famille', 20);
+  document.getElementById('btnProfil').setAttribute('aria-label', actif ? `Profil : ${actif.nom}, famille et réglages` : 'Famille et réglages');
   document.getElementById('vue').innerHTML = VUES[v]();
   const a = AJOUT[v];
   document.getElementById('fabZone').innerHTML = a ? `<button class="fab" data-act="ouvrir" data-sheet="${a[0]}" aria-label="Ajouter : ${a[1]}">${ico('plus')}${a[1]}</button>` : '';
@@ -316,6 +327,7 @@ const VUES = {
 
   membres() {
     return `
+      <button class="lien" data-goto="accueil" style="align-self:flex-start">‹ Retour à l’accueil</button>
       <section class="carte"><h2>Membres</h2><ul class="liste">
         ${etat.membres.map(m => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="membre" data-id="${m.id}" aria-label="Modifier ${esc(m.nom)}">${avatar(m.id, true)}<span class="rang-txt"><b>${esc(m.nom)}</b>${m.naissance ? `<small>Né(e) le ${fmtDate(m.naissance)}</small>` : ''}</span></button>
           <button class="icone" data-act="membre-del" data-id="${m.id}" aria-label="Supprimer ${esc(m.nom)}">${ico('x', 18)}</button></li>`).join('')
@@ -362,6 +374,13 @@ const SHEETS = {
     <button class="btn plein">${t ? 'Enregistrer' : 'Ajouter'}</button></form>` };
   },
 };
+SHEETS.profil = () => ({ titre: 'Qui utilise l’appli ?', corps: `<p class="mut">Votre prénom sert à attribuer vos points, vos tâches et votre suivi sportif. Ce choix reste sur cet appareil.</p>
+  <ul class="liste">${etat.membres.map(m => `<li><button class="rang" data-act="actif" data-id="${m.id}">${avatar(m.id)}<span class="rang-txt"><b>${esc(m.nom)}</b></span>${m.id === etat.actif ? '<span class="pill ok">Vous</span>' : ''}</button></li>`).join('') || '<li class="vide">Aucun membre pour l’instant.</li>'}</ul>
+  <button class="btn plein" data-act="aller-famille">Famille, synchronisation et sauvegarde</button>
+  <button class="btn sec plein" data-act="ouvrir" data-sheet="accueil-perso">Personnaliser l’accueil</button>` });
+SHEETS.article = () => ({ titre: 'Ajouter à la liste de courses', corps: `<form class="formulaire" data-form="course">
+  ${fld('Article', '<input name="nom" required autocomplete="off" placeholder="2 yaourts" enterkeyhint="done">')}
+  <button class="btn plein">Ajouter</button></form>` });
 SHEETS.recurrent = d => {
   const r = d.id ? etat.recurrents.find(x => x.id === d.id) : null, neg = !r || r.montant < 0;
   return { titre: r ? 'Modifier l’opération automatique' : 'Opération automatique', corps: `<form class="formulaire" data-form="recurrent"><input type="hidden" name="id" value="${r ? r.id : ''}">
@@ -425,6 +444,8 @@ const fermerFeuille = () => document.querySelectorAll('.modal').forEach(m => m.r
 const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del', 'pret-del', 'recette-del', 'carnet-del', 'cadeau-del', 'voyage-del', 'voy-item-del', 'voy-etape-del', 'voy-dep-del', 'seance-del', 'plan-item-del', 'prog-del', 'prog-del-voy', 'epargne-del']);
 const ACTIONS = {
   'ouvrir': el => { ouvrirFeuille(el.dataset.sheet, el.dataset); return 'vue'; },
+  'actif': el => { etat.actif = el.dataset.id; fermerFeuille(); },
+  'aller-famille': () => { aller('famille'); return 'vue'; },
   'filtre': el => { filtreT = el.dataset.v; return 'vue'; },
   'course-fait': el => { const c = etat.courses.find(x => x.id === el.dataset.id); c.fait = el.checked; },
   'course-hab': el => { const v = etat.freq[el.dataset.k]; if (v) ajouterCourse(v.nom, 1); },
@@ -508,7 +529,7 @@ const ACTIONS = {
 };
 
 const FORMS = {
-  course: f => { const [nom, qte] = parseCourse(f.nom.value); if (nom && ajouterCourse(nom, qte) === 'maj') info('Quantité mise à jour.'); },
+  course: f => { const [nom, qte] = parseCourse(f.nom.value); if (nom && ajouterCourse(nom, qte) === 'maj') info('Quantité mise à jour.'); else if (nom && f.closest('.modal')) info('Ajouté à la liste de courses.'); },
   tache: f => etat.taches.push({ id: uid(), titre: f.titre.value.trim(), membre: f.membre.value, points: Number(f.points.value) || 0, echeance: f.echeance.value, rec: f.rec.value, fait: false, par: null }),
   event: f => { etat.events.push({ id: uid(), titre: f.titre.value.trim(), date: f.date.value, heure: f.heure.value, membre: f.membre.value, rec: f.rec.value }); jourSel = f.date.value; moisAff = new Date(parse(jourSel).getFullYear(), parse(jourSel).getMonth(), 1); },
   tx: f => {
@@ -569,8 +590,7 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('change', e => {
   const t = e.target;
-  if (t.id === 'membreActif') { etat.actif = t.value || null; sauver(); rendre(); }
-  else if (t.dataset.act && t.type === 'checkbox') executer(t);
+  if (t.dataset.act && t.type === 'checkbox') executer(t);
   else if (t.dataset.repas) {
     const k = t.dataset.repas;
     etat.repas[k] = { ...etat.repas[k], [t.dataset.slot]: t.value.trim() };
@@ -736,6 +756,7 @@ function importerCsv(fichier) {
 }
 
 
+restaurerNav();
 appliquerRecurrents();
 rendre();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});

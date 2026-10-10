@@ -2,6 +2,12 @@
 // Accueil personnalisable : chaque bloc peut être masqué ou déplacé (réglage propre à l'appareil).
 
 const BLOCS = {
+  raccourcis: ['Raccourcis', () => `<div class="chips raccourcis" role="group" aria-label="Raccourcis">
+    <button data-act="ouvrir" data-sheet="article">${ico('maison', 18)} Article</button>
+    <button data-act="ouvrir" data-sheet="tache">${ico('planning', 18)} Tâche</button>
+    <button data-act="ouvrir" data-sheet="event">${ico('plus', 18)} Événement</button>
+    <button data-act="ouvrir" data-sheet="tx">${ico('argent', 18)} Dépense</button>
+    <button data-act="ouvrir" data-sheet="seance">${ico('sport', 18)} Séance</button></div>`],
   rappels: ['À ne pas oublier', () => {
     const auj = aujourdhui(), demain = iso(ajouteJours(parse(auj), 1));
     const L = [
@@ -75,7 +81,8 @@ const BLOCS = {
 const BLOCS_ORDRE = Object.keys(BLOCS);
 function accueilCfg() {
   const c = etat.accueil = { ordre: [], masques: [], ...(etat.accueil || {}) };
-  c.ordre = [...c.ordre.filter(i => BLOCS_ORDRE.includes(i)), ...BLOCS_ORDRE.filter(i => !c.ordre.includes(i))];
+  const manquants = BLOCS_ORDRE.filter(i => !c.ordre.includes(i));
+  c.ordre = [...(manquants.includes('raccourcis') ? ['raccourcis'] : []), ...c.ordre.filter(i => BLOCS_ORDRE.includes(i)), ...manquants.filter(i => i !== 'raccourcis')];
   return c;
 }
 VUES.accueil = function () {

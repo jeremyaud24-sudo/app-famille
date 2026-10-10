@@ -3,7 +3,7 @@
 Application familiale installable (PWA), en français, sans dépendances ni build.
 
 ## Navigation
-5 onglets (Accueil, Agenda, Listes, Argent, Famille). Listes regroupe Courses, Tâches et Repas ; Argent regroupe Bourse et Budget. Les ajouts se font par un bouton « + » qui ouvre une feuille de saisie ; les suppressions proposent « Annuler ».
+5 rubriques en bas : **Accueil**, **Planning** (Agenda, Tâches, Voyages, Cadeaux), **Maison** (Courses, Repas, Recettes, Carnet), **Argent** (Budget, Patrimoine, Bourse, Prêts) et **Sport** (Suivi, Programme, Conseils). La famille, la synchronisation et la sauvegarde sont accessibles par l'avatar en haut à droite, la recherche par la loupe. L'accueil propose des raccourcis (article, tâche, événement, dépense, séance) et chaque rubrique retrouve sa dernière page. Les ajouts passent par un bouton « + » qui ouvre une feuille de saisie ; les suppressions proposent « Annuler ».
 
 ## Fonctionnalités
 - **Accueil** : résumé du jour (événements, menu, tâches, courses, anniversaires).

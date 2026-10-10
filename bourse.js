@@ -296,7 +296,7 @@ ACTIONS['plan-exec'] = async () => {
 
 // ---------- Interface ----------
 let bTab = 'synthese', bRep = 'type', bPer = '3m';
-const B_TABS = [['synthese', 'Synthèse'], ['lignes', 'Lignes'], ['conseils', 'Conseils'], ['plan', 'Plan'], ['outils', 'Outils']];
+const B_TABS = [['synthese', 'Synthèse'], ['lignes', 'Lignes'], ['conseils', 'Conseils'], ['plan', 'Investir'], ['outils', 'Outils']];
 const REP = [['type', 'Type'], ['secteur', 'Secteur'], ['zone', 'Zone'], ['enveloppe', 'Enveloppe']];
 const SEV = { rouge: ['bad', 'Important'], orange: ['warn', 'À surveiller'], vert: ['ok', 'Positif'], info: ['', 'Info'] };
 const COUL_PF = ['#0b8f78', '#d98a1c', '#3b73e0', '#c23b63', '#8a5cd6', '#7b8a84'];
