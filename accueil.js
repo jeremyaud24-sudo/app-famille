@@ -70,7 +70,7 @@ const BLOCS = {
     const v = voyageProchain();
     if (!v) return '';
     const d = diffJours(aujourdhui(), v.debut), n = v.checklist.filter(c => c.fait).length;
-    return `<button class="carte" data-goto="voyages" style="text-align:left"><h2>${esc(v.nom)}</h2><div class="bar"><b class="score">${d > 0 ? 'J-' + d : 'En cours'}</b><small>Checklist ${n}/${v.checklist.length}</small></div></button>`;
+    return `<button class="carte" data-goto="voyages" style="text-align:left">${v.photo ? `<img class="photo-carte" src="${esc(v.photo)}" alt="">` : ''}<h2>${esc(v.nom)}</h2><div class="bar"><b class="score">${d > 0 ? 'J-' + d : 'En cours'}</b><small>Checklist ${n}/${v.checklist.length}</small></div></button>`;
   }],
   anniv: ['Anniversaires', () => {
     const a = anniversaires(30);

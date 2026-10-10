@@ -124,7 +124,7 @@ VUES.voyages = function () {
   const dep = somme(v.depenses, d => d.montant), faits = v.checklist.filter(c => c.fait).length;
   const nuits = Math.max(0, diffJours(v.debut, v.fin));
   return `<div class="chips" role="group" aria-label="Choisir un voyage">${tri.map(x => `<button data-act="voy-sel" data-id="${x.id}" aria-pressed="${x.id === v.id}">${esc(x.nom)}</button>`).join('')}</div>
-    <section class="hero"><p class="hero-lbl">${esc(v.destination || 'Destination à préciser')}</p><p class="hero-val">${fini ? 'Terminé' : jours > 0 ? `J-${jours}` : 'En cours'}</p>
+    <section class="hero${v.photo ? ' hero-photo' : ''}"${v.photo ? ` style="background-image:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.68)),url('${v.photo}')"` : ''}><p class="hero-lbl">${esc(v.destination || 'Destination à préciser')}</p><p class="hero-val">${fini ? 'Terminé' : jours > 0 ? `J-${jours}` : 'En cours'}</p>
       <p class="hero-sub">${fmtDate(v.debut)} → ${fmtDate(v.fin)} · ${nuits} nuit${pl(nuits)}</p></section>
     ${carteProgramme(v)}
     <section class="carte"><div class="carte-tete"><h2>Checklist</h2><span class="pill pri">${faits}/${v.checklist.length}</span></div>
@@ -151,6 +151,13 @@ SHEETS.voyage = d => {
     ${fld('Retour (calculé si le nombre de jours est renseigné)', `<input type="date" name="fin" value="${esc(val(v, 'fin'))}">`)}
     <div class="duo">${fld('Voyageurs', `<select name="voyageurs">${optSel(VOYAGEURS, val(v, 'voyageurs', etat.membres.length >= 3 ? 'famille' : 'couple'))}</select>`)}${fld('Rythme', `<select name="rythme">${optSel(RYTHMES, val(v, 'rythme', 'equilibre'))}</select>`)}</div>
     ${fld('Budget (€, facultatif)', `<input type="number" name="budget" min="0" step="50" inputmode="decimal" value="${val(v, 'budget', '') || ''}">`)}
+    <div class="champ"><span>Photo de la destination (facultatif)</span>
+      <div class="photo-zone" id="photoZone">${v && v.photo ? `<img src="${esc(v.photo)}" alt="Photo actuelle de la destination">` : ''}</div>
+      <input type="hidden" name="photo" value="">
+      <label class="btn sec">Choisir une photo<input type="file" id="photoFichier" accept="image/*" hidden></label>
+      ${v && v.photo ? '<label class="rang-main"><input type="checkbox" class="coche" name="retirerPhoto"><span class="rang-txt">Retirer la photo</span></label>' : ''}
+      <a class="lien" id="lienPhoto" target="_blank" rel="noopener" href="https://unsplash.com/s/photos/${encodeURIComponent(val(v, 'destination'))}">Chercher une photo libre de droits ↗</a>
+      <small>Enregistrez l’image depuis le site, puis choisissez-la ici. Elle est réduite pour rester légère.</small></div>
     <small>Avec une destination et des dates, l’application propose un programme d’activités adapté aux voyageurs.</small>
     <button class="btn plein">Enregistrer</button></form>` };
 };
@@ -176,8 +183,9 @@ FORMS.voyage = f => {
     v = etat.voyages[i];
     const change = v.destination !== o.destination || v.debut !== o.debut || v.fin !== o.fin || v.voyageurs !== o.voyageurs || v.rythme !== o.rythme;
     Object.assign(v, o);
+    if (f.retirerPhoto && f.retirerPhoto.checked) v.photo = ''; else if (f.photo.value) v.photo = f.photo.value;
     if (change) v.programme = null;
-  } else { v = { id: uid(), checklist: [], depenses: [], etapes: [], programme: null, ...o }; etat.voyages.push(v); voySel = v.id; }
+  } else { v = { id: uid(), checklist: [], depenses: [], etapes: [], programme: null, photo: f.photo.value || '', ...o }; etat.voyages.push(v); voySel = v.id; }
   if (v.destination && !v.programme) setTimeout(() => lancerProg(v.id), 40);
 };
 FORMS['voy-item'] = f => { const v = voyAct(); if (v) v.checklist.push({ id: uid(), txt: f.txt.value.trim(), fait: false }); };
@@ -342,3 +350,36 @@ rechercher = function (q) {
   etat.cadeaux.filter(c => m(c.idee) || m(c.pour)).slice(0, 6).forEach(c => R.push({ g: 'Cadeaux', t: c.idee, s: 'Pour ' + c.pour, vue: 'cadeaux' }));
   return R;
 };
+
+// ---------- Photo de la destination : image réduite et compressée (stockée dans le voyage) ----------
+async function reduirePhoto(fichier, largeurMax = 1000, tailleMax = 150000) {
+  const url = URL.createObjectURL(fichier);
+  try {
+    const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = url; });
+    let l = Math.min(1, largeurMax / img.naturalWidth);
+    for (let essai = 0; essai < 6; essai++) {
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.naturalWidth * l)); c.height = Math.max(1, Math.round(img.naturalHeight * l));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      for (let q = 0.8; q >= 0.4; q -= 0.1) { const d = c.toDataURL('image/jpeg', q); if (d.length <= tailleMax) return d; }
+      l *= 0.8;
+    }
+    throw new Error('trop lourde');
+  } finally { URL.revokeObjectURL(url); }
+}
+document.addEventListener('change', async e => {
+  if (e.target.id !== 'photoFichier' || !e.target.files[0]) return;
+  const form = e.target.closest('form'), zone = document.getElementById('photoZone'), bouton = form.querySelector('.btn.plein');
+  zone.textContent = 'Traitement de la photo…'; bouton.disabled = true;
+  try {
+    const d = await reduirePhoto(e.target.files[0]);
+    form.elements.photo.value = d;
+    zone.innerHTML = `<img src="${d}" alt="Aperçu de la photo">`;
+  } catch { zone.textContent = 'Photo illisible. Essayez une image JPEG ou PNG.'; form.elements.photo.value = ''; }
+  bouton.disabled = false;
+});
+document.addEventListener('input', e => {
+  if (e.target.name !== 'destination') return;
+  const l = document.getElementById('lienPhoto');
+  if (l) l.href = 'https://unsplash.com/s/photos/' + encodeURIComponent(e.target.value);
+});
