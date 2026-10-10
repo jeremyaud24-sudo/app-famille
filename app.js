@@ -16,7 +16,7 @@ function charger() {
   } catch { return defaut(); }
 }
 function sauver() {
-  try { localStorage.setItem(CLE, JSON.stringify(etat)); } catch { alert('Impossible de sauvegarder les données.'); }
+  try { localStorage.setItem(CLE, JSON.stringify(etat)); } catch { info('Impossible de sauvegarder les données.'); }
 }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -230,7 +230,8 @@ const VUES = {
       <div class="card"><h2>💾 Données</h2>
         <p class="mut">Les données sont stockées sur cet appareil. Exportez-les pour les sauvegarder ou les copier sur un autre appareil.</p>
         <button class="btn" data-act="export">Exporter</button>
-        <label class="btn sec" style="display:inline-block">Importer<input type="file" id="import" accept="application/json" hidden></label>
+        <button class="btn sec" data-act="import-coller">Importer (coller)</button>
+        <label class="btn sec" style="display:inline-block">Importer un fichier<input type="file" id="import" accept="application/json" hidden></label>
       </div>`;
   },
 };
@@ -247,8 +248,8 @@ const ACTIONS = {
   },
   'tache-del': el => { etat.taches = etat.taches.filter(x => x.id !== el.dataset.id); },
   'event-del': el => { etat.events = etat.events.filter(x => x.id !== el.dataset.id); },
-  'membre-del': el => {
-    if (!confirm('Supprimer ce membre ?')) return false;
+  'membre-del': async el => {
+    if (!await confirmer('Supprimer ce membre ?')) return false;
     const id = el.dataset.id;
     etat.membres = etat.membres.filter(m => m.id !== id);
     if (etat.actif === id) etat.actif = null;
@@ -274,14 +275,16 @@ const ACTIONS = {
         if (nom && !noms.has(nom.toLowerCase())) { etat.courses.push({ id: uid(), nom, fait: false }); noms.add(nom.toLowerCase()); n++; }
       });
     }
-    alert(n ? `${n} élément(s) ajouté(s) aux courses.` : 'Rien à ajouter.');
+    info(n ? `${n} élément(s) ajouté(s) aux courses.` : 'Rien à ajouter.');
   },
-  'export': () => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(etat, null, 2)], { type: 'application/json' }));
-    a.download = `famille-${aujourdhui()}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  'export': async () => {
+    await dialogue({ titre: 'Exporter les données', texte: 'Copiez ce texte et conservez-le dans un fichier ou une note : il suffit de le coller dans « Importer » pour tout retrouver.', champs: [{ nom: 'json', zone: true, lecture: true, valeur: JSON.stringify(etat) }], ok: 'Fermer', annuler: false, copie: true });
+    return 'vue';
+  },
+  'import-coller': async () => {
+    const r = await dialogue({ titre: 'Importer des données', texte: 'Collez le texte exporté depuis l’application.', champs: [{ nom: 'json', zone: true, valeur: '' }], ok: 'Importer' });
+    if (!r) return 'vue';
+    await restaurer(r.json);
     return 'vue';
   },
 };
@@ -331,27 +334,62 @@ document.getElementById('tabs').addEventListener('click', e => {
   if (b) aller(b.dataset.vue);
 });
 
-function executer(el) {
-  const r = ACTIONS[el.dataset.act](el);
+async function executer(el) {
+  const r = await ACTIONS[el.dataset.act](el);
   if (r !== false && r !== 'vue') sauver();
   rendre();
 }
 
+async function restaurer(texte) {
+  try {
+    const d = JSON.parse(texte);
+    if (typeof d !== 'object' || !Array.isArray(d.membres)) throw new Error();
+    if (!await confirmer('Remplacer toutes les données actuelles ?')) return;
+    etat = { ...defaut(), ...d };
+    sauver();
+    rendre();
+    info('Données importées.');
+  } catch { info('Texte ou fichier invalide.'); }
+}
 function importer(fichier) {
   if (!fichier) return;
   const lecteur = new FileReader();
-  lecteur.onload = () => {
-    try {
-      const d = JSON.parse(lecteur.result);
-      if (typeof d !== 'object' || !Array.isArray(d.membres)) throw new Error();
-      if (!confirm('Remplacer toutes les données actuelles par ce fichier ?')) return;
-      etat = { ...defaut(), ...d };
-      sauver();
-      rendre();
-    } catch { alert('Fichier invalide.'); }
-  };
+  lecteur.onload = () => restaurer(lecteur.result);
   lecteur.readAsText(fichier);
 }
+
+// ---------- Boîtes de dialogue (alert/confirm/prompt indisponibles dans certains contextes) ----------
+function info(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4500);
+}
+function dialogue({ titre = '', texte = '', champs = [], ok = 'Valider', annuler = true, copie = false }) {
+  return new Promise(resolve => {
+    const fond = document.createElement('div');
+    fond.className = 'modal';
+    fond.innerHTML = `<form class="boite" role="dialog" aria-modal="true">
+      ${titre ? `<h2>${esc(titre)}</h2>` : ''}${texte ? `<p>${esc(texte)}</p>` : ''}
+      ${champs.map((c, i) => c.zone
+        ? `<textarea id="dlg${i}" name="${c.nom}" rows="8" ${c.lecture ? 'readonly' : 'required'} aria-label="${esc(c.nom)}">${esc(c.valeur)}</textarea>`
+        : `<label>${esc(c.label)}<input id="dlg${i}" name="${c.nom}" type="number" step="any" value="${esc(c.valeur ?? '')}" required></label>`).join('')}
+      <div class="actions">${copie ? '<button type="button" class="btn sec" data-copie>Copier</button>' : ''}${annuler ? '<button type="button" class="btn sec" data-non>Annuler</button>' : ''}<button class="btn">${esc(ok)}</button></div></form>`;
+    document.body.appendChild(fond);
+    const f = fond.firstElementChild;
+    const fin = v => { fond.remove(); resolve(v); };
+    f.addEventListener('submit', e => { e.preventDefault(); fin(Object.fromEntries(new FormData(f))); });
+    f.querySelector('[data-non]')?.addEventListener('click', () => fin(null));
+    fond.addEventListener('click', e => { if (e.target === fond && annuler) fin(null); });
+    f.addEventListener('keydown', e => { if (e.key === 'Escape' && annuler) fin(null); });
+    f.querySelector('[data-copie]')?.addEventListener('click', () => {
+      const z = f.querySelector('textarea');
+      navigator.clipboard.writeText(z.value).then(() => info('Copié.'), () => { z.select(); info('Sélectionné : copiez manuellement.'); });
+    });
+    (f.querySelector('input,textarea') || f.querySelector('.btn:last-child')).focus();
+  });
+}
+const confirmer = async texte => !!(await dialogue({ texte, ok: 'Confirmer' }));
 
 // ---------- Import CSV ----------
 function decoupe(ligne, sep) {
@@ -405,7 +443,7 @@ function importerCsv(fichier) {
       ajoutes++;
     }
     sauver(); rendre();
-    alert(`${ajoutes} opération(s) importée(s), ${ignores} ignorée(s) (doublons ou lignes illisibles).`);
+    info(`${ajoutes} opération(s) importée(s), ${ignores} ignorée(s) (doublons ou lignes illisibles).`);
   };
   lecteur.readAsText(fichier);
 }

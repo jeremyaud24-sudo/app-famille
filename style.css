@@ -1,12 +1,13 @@
-:root{--bg:#f5f5fa;--card:#fff;--txt:#1f2937;--mut:#6b7280;--pri:#4f46e5;--bd:#e5e7eb;--ok:#16a34a;--ko:#dc2626}
-@media (prefers-color-scheme:dark){:root{--bg:#111827;--card:#1f2937;--txt:#f3f4f6;--mut:#9ca3af;--bd:#374151}}
+:root{--bg:#f5f5fa;--card:#fff;--txt:#1f2937;--mut:#6b7280;--pri:#4f46e5;--bd:#e5e7eb;--ok:#16a34a;--ko:#dc2626;--on-pri:#fff;--shade:rgba(15,23,42,.45)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111827;--card:#1f2937;--txt:#f3f4f6;--mut:#9ca3af;--bd:#374151;--pri:#6366f1;--ok:#4ade80;--ko:#f87171;--shade:rgba(0,0,0,.6);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#111827;--card:#1f2937;--txt:#f3f4f6;--mut:#9ca3af;--bd:#374151;--pri:#6366f1;--ok:#4ade80;--ko:#f87171;--shade:rgba(0,0,0,.6);color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;font:16px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--txt);padding-bottom:76px}
-.top{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px;background:var(--pri);color:#fff}
+body{margin:0;min-height:100%;font:16px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--txt);padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px;background:var(--pri);color:var(--on-pri)}
 .top h1{margin:0;font-size:1.2rem}
 .top select{max-width:45%}
 main{max-width:720px;margin:0 auto;padding:16px}
-.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--bd)}
+.tabs{position:fixed;bottom:0;left:0;right:0;padding-bottom:env(safe-area-inset-bottom,0px);display:flex;background:var(--card);border-top:1px solid var(--bd)}
 .tabs button{flex:1;border:0;background:none;color:var(--mut);padding:8px 0;font-size:.7rem;cursor:pointer}
 .tabs button span{display:block;font-size:1.3rem}
 .tabs button.on{color:var(--pri);font-weight:600}
@@ -16,7 +17,7 @@ input,select,button,textarea{font:inherit;color:inherit}
 input,select,textarea{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px}
 form.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 form.row input[type=text]{flex:1;min-width:140px}
-.btn{background:var(--pri);color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
+.btn{background:var(--pri);color:var(--on-pri);border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
 .btn.sec{background:var(--bd);color:var(--txt)}
 .btn.del{background:none;color:var(--ko);padding:4px 8px}
 ul.list{list-style:none;margin:0;padding:0}
@@ -31,7 +32,7 @@ li.fait .grow{text-decoration:line-through;color:var(--mut)}
 .grid7{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
 .grid7 .j{padding:8px 0;border-radius:8px;cursor:pointer;position:relative;font-size:.9rem}
 .grid7 .h{color:var(--mut);font-size:.75rem}
-.grid7 .j.sel{background:var(--pri);color:#fff}
+.grid7 .j.sel{background:var(--pri);color:var(--on-pri)}
 .grid7 .j.auj{border:1px solid var(--pri)}
 .grid7 .j.ev::after{content:"";position:absolute;bottom:3px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--ko)}
 .repas td,.repas th{padding:6px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:top}
@@ -48,3 +49,11 @@ li.fait .grow{text-decoration:line-through;color:var(--mut)}
 .formgrid .btn{grid-column:1/-1}
 details summary{cursor:pointer}
 h3.mut{margin:10px 0 4px;font-size:.8rem;font-weight:600}
+.modal{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:16px;background:var(--shade)}
+.boite{background:var(--card);color:var(--txt);border:1px solid var(--bd);border-radius:12px;padding:16px;width:100%;max-width:420px;display:flex;flex-direction:column;gap:10px;max-height:90%;overflow:auto}
+.boite h2{margin:0;font-size:1.05rem}.boite p{margin:0;color:var(--mut)}
+.boite label{display:flex;flex-direction:column;gap:4px;color:var(--mut);font-size:.85rem}
+.boite textarea{width:100%;font:.8rem ui-monospace,monospace;color:var(--txt)}
+.boite .actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.toast{position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:30;max-width:420px;margin:0 auto;background:var(--txt);color:var(--bg);padding:10px 14px;border-radius:10px;text-align:center}
+:focus-visible{outline:2px solid var(--pri);outline-offset:2px}

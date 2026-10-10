@@ -213,18 +213,21 @@ VUES.bourse = function () {
 };
 
 // ---------- Actions ----------
-ACTIONS['pf-del'] = el => { if (!confirm('Supprimer cette ligne ?')) return false; etat.pf = etat.pf.filter(p => p.id !== el.dataset.id); };
-ACTIONS['pf-achat'] = el => {
+ACTIONS['pf-del'] = async el => { if (!await confirmer('Supprimer cette ligne ?')) return false; etat.pf = etat.pf.filter(p => p.id !== el.dataset.id); };
+ACTIONS['pf-achat'] = async el => {
   const p = etat.pf.find(x => x.id === el.dataset.id);
-  const q = nb(prompt(`Quantité achetée de ${p.ticker} ?`) || ''), px = nb(prompt('Prix unitaire (frais inclus) ?', p.cours) || '');
+  const r = await dialogue({ titre: `Renforcer ${p.ticker}`, champs: [{ nom: 'q', label: 'Quantité achetée' }, { nom: 'px', label: 'Prix unitaire (frais inclus)', valeur: p.cours }], ok: 'Enregistrer' });
+  const q = r && nb(r.q), px = r && nb(r.px);
   if (!q || q <= 0 || px === null || px < 0) return false;
   p.pru = (p.qte * p.pru + q * px) / (p.qte + q);
   p.qte += q;
 };
-ACTIONS['pf-vente'] = el => {
+ACTIONS['pf-vente'] = async el => {
   const p = etat.pf.find(x => x.id === el.dataset.id);
-  const q = nb(prompt(`Quantité vendue de ${p.ticker} (max ${p.qte}) ?`) || ''), px = nb(prompt('Prix de vente unitaire ?', p.cours) || '');
-  if (!q || q <= 0 || q > p.qte || px === null || px < 0) return false;
+  const r = await dialogue({ titre: `Vendre ${p.ticker}`, texte: `Quantité détenue : ${p.qte}`, champs: [{ nom: 'q', label: 'Quantité vendue' }, { nom: 'px', label: 'Prix de vente unitaire', valeur: p.cours }], ok: 'Enregistrer' });
+  const q = r && nb(r.q), px = r && nb(r.px);
+  if (!q || q <= 0 || q > p.qte) { if (r) info(`Quantité invalide (maximum ${p.qte}).`); return false; }
+  if (px === null || px < 0) return false;
   cfg().realise += (px - p.pru) * q;
   p.qte -= q;
   if (p.qte <= 0) etat.pf = etat.pf.filter(x => x.id !== p.id);
