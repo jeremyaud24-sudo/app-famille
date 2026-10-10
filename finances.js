@@ -7,7 +7,7 @@ function cfgTreso() {
   return o;
 }
 function cfgPat() {
-  const d = { maison: 0, epargne: 0, autres: 0}, o = etat.pat || (etat.pat = {});
+  const d = { maison: 0, epargne: 0, autres: 0, inflation: 2, epargneTaux: 2 }, o = etat.pat || (etat.pat = {});
   for (const k in d) if (o[k] === undefined) o[k] = d[k];
   return o;
 }
@@ -128,12 +128,13 @@ VUES.patrimoine = function () {
       <ul class="legende">${P.actifs.map(([n, v], i) => `<li><i style="background:${COUL[i]}"></i>${esc(n)} <b class="num">${pc(v / P.totalA * 100)}</b></li>`).join('')}</ul>
       ${P.actifs.map(([n, v]) => `<div class="kv"><span>${esc(n)}</span><b>${eur(v)}</b></div>`).join('')}</section>` : ''}
     <section class="carte"><div class="carte-tete"><h2>Épargne</h2><button class="lien" data-act="ouvrir" data-sheet="epargne">Ajouter un compte</button></div>
-      ${(etat.epargne || []).length ? `<ul class="liste">${etat.epargne.map(c => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="epargne" data-id="${c.id}" aria-label="Modifier ${esc(c.nom)}"><span class="rang-txt"><b>${esc(c.nom)}</b><small>${esc(nomEpargne(c.type))}${c.taux ? ' · ' + String(c.taux).replace('.', ',') + ' %' : ''}</small></span><b class="num">${eur(c.solde || 0)}</b></button>
+      ${(etat.epargne || []).length ? `<ul class="liste">${etat.epargne.map(c => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="epargne" data-id="${c.id}" aria-label="Modifier ${esc(c.nom)}"><span class="rang-txt"><b>${esc(c.nom)}</b><small>${esc(nomEpargne(c.type))}${c.taux ? ' · ' + String(c.taux).replace('.', ',') + ' %' : ''}${c.mensuel ? ' · +' + eur(c.mensuel) + '/mois' : ''}</small></span><b class="num">${eur(c.solde || 0)}</b></button>
         <button class="btn sec" data-act="epargne-versement" data-id="${c.id}" style="min-height:36px;padding:0 12px">Versement</button></li>`).join('')}</ul>
         <div class="kv"><span>Total des comptes</span><b>${eur(somme(etat.epargne, c => c.solde || 0))}</b></div>
         ${somme(etat.epargne, c => (c.solde || 0) * (c.taux || 0) / 100) > 0 ? `<div class="kv"><span>Intérêts annuels estimés</span><b>${eur(somme(etat.epargne, c => (c.solde || 0) * (c.taux || 0) / 100))}</b></div>` : ''}`
         : '<p class="vide">Ajoutez vos livrets et placements (Livret A, assurance-vie, PEL…) pour suivre votre épargne et chaque versement.</p>'}
       ${pat.epargne > 0 ? `<div class="kv"><span>Épargne non détaillée</span><span><b>${eur(pat.epargne)}</b> <button class="lien" data-act="ouvrir" data-sheet="epargne" data-reprise="1">Détailler</button></span></div>` : ''}</section>
+    ${carteProjEpargne()}
     <section class="carte"><h2>Dettes</h2>
       ${P.prets.map(p => `<div class="kv"><span>${esc(p.nom)} (capital restant dû)</span><b>${eur(p.crd)}</b></div>`).join('') || '<p class="vide">Aucun prêt suivi. Ajoutez-le dans l’onglet Prêts.</p>'}
       ${ltv != null ? `<small>Les prêts représentent ${pc(ltv)} de la valeur du logement.</small>` : ''}</section>
@@ -163,14 +164,15 @@ SHEETS.epargne = d => {
   const hist = c && c.mouvements && c.mouvements.length ? `<h3 class="mut" style="margin:0;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em">Derniers mouvements</h3><ul class="liste">${[...c.mouvements].reverse().slice(0, 5).map(m => `<li class="rang" style="min-height:38px"><span class="rang-txt">${fmtDate(m.date)}</span><b class="num" style="color:var(--${m.montant < 0 ? 'bad' : 'ok'})">${m.montant > 0 ? '+' : ''}${eur(m.montant)}</b></li>`).join('')}</ul>` : '';
   return { titre: c ? 'Modifier le compte' : 'Ajouter un compte d’épargne', corps: `<form class="formulaire" data-form="epargne"><input type="hidden" name="id" value="${c ? c.id : ''}"><input type="hidden" name="reprise" value="${reprise ? '1' : ''}">
     ${fld('Nom', `<input name="nom" required autocomplete="off" value="${esc(c ? c.nom : '')}" placeholder="Livret A de Jeremy">`)}
-    <div class="duo">${fld('Type', `<select name="type">${optSel(TYPES_EPARGNE, c ? c.type : 'livretA')}</select>`)}${fld('Taux (%, facultatif)', `<input type="number" name="taux" min="0" step="0.01" inputmode="decimal" value="${c && c.taux ? c.taux : ''}">`)}</div>
+    ${fld('Type', `<select name="type">${optSel(TYPES_EPARGNE, c ? c.type : 'livretA')}</select>`)}
+    <div class="duo">${fld('Taux annuel (%)', `<input type="number" name="taux" min="0" step="0.01" inputmode="decimal" value="${c && c.taux ? c.taux : ''}">`)}${fld('Versement mensuel (€)', `<input type="number" name="mensuel" min="0" step="10" inputmode="decimal" value="${c && c.mensuel ? c.mensuel : ''}">`)}</div>
     ${fld(reprise ? 'Montant à affecter à ce compte (€)' : 'Solde (€)', `<input type="number" name="solde" step="0.01" required inputmode="decimal" value="${c ? c.solde : reprise ? cfgPat().epargne : ''}">`)}
     ${reprise ? '<small>Ce montant sera retiré de l’épargne non détaillée.</small>' : ''}
     ${hist}
     <button class="btn plein">Enregistrer</button></form>` };
 };
 FORMS.epargne = f => {
-  const o = { nom: f.nom.value.trim(), type: f.type.value, taux: Number(f.taux.value) || 0, solde: Number(f.solde.value) || 0 };
+  const o = { nom: f.nom.value.trim(), type: f.type.value, taux: Number(f.taux.value) || 0, mensuel: Number(f.mensuel.value) || 0, solde: Number(f.solde.value) || 0 };
   etat.epargne = etat.epargne || [];
   const i = etat.epargne.findIndex(x => x.id === f.id.value);
   if (i >= 0) {
@@ -192,3 +194,41 @@ ACTIONS['epargne-versement'] = async el => {
   (c.mouvements = c.mouvements || []).push({ date: aujourdhui(), montant: m });
   info(`${m > 0 ? 'Versement' : 'Retrait'} de ${eur(Math.abs(m))} enregistré.`);
 };
+
+// ---------- Projection de l'épargne ----------
+// Capitalisation annuelle des intérêts, versements mensuels en fin de mois. Taux constants, avant impôts et prélèvements sociaux.
+function projectionEpargne(horizon = 15) {
+  const pat = cfgPat(), infl = (pat.inflation || 0) / 100;
+  const comptes = [...(etat.epargne || []).map(c => ({ nom: c.nom, solde: c.solde || 0, taux: c.taux || 0, mens: c.mensuel || 0 }))];
+  if (pat.epargne > 0) comptes.push({ nom: 'Épargne non détaillée', solde: pat.epargne, taux: pat.epargneTaux || 0, mens: 0 });
+  if (!comptes.length) return null;
+  const annees = Array.from({ length: horizon + 1 }, (_, y) => y);
+  const sim = c => { // valeur et versements cumulés à chaque fin d'année
+    const rm = Math.pow(1 + c.taux / 100, 1 / 12) - 1, v = [c.solde], vers = [0];
+    let s = c.solde;
+    for (let m = 1; m <= horizon * 12; m++) { s = s * (1 + rm) + c.mens; if (m % 12 === 0) { v.push(s); vers.push(c.mens * m); } }
+    return { v, vers };
+  };
+  const res = comptes.map(c => ({ ...c, ...sim(c) }));
+  const total = annees.map(y => somme(res, r => r.v[y])), versements = annees.map(y => somme(res, r => r.vers[y])), initial = somme(comptes, c => c.solde);
+  return { annees, comptes: res, total, versements, initial, infl };
+}
+function carteProjEpargne() {
+  const P = projectionEpargne(), pat = cfgPat();
+  if (!P) return `<section class="carte"><h2>Projection de l’épargne</h2><p class="vide">Ajoutez un compte d’épargne avec son taux et son versement mensuel pour voir ce que vous aurez dans 5, 10 et 15 ans.</p></section>`;
+  const an = new Date().getFullYear();
+  const pts = P.annees.map(y => ({ label: `${an + y}-12-31`, v: [P.total[y], P.initial + P.versements[y]] }));
+  const ligne = y => {
+    const reel = P.total[y] / Math.pow(1 + P.infl, y), interets = P.total[y] - P.initial - P.versements[y];
+    return `<tr><td><b>${y} ans</b><br><small>${an + y}</small></td><td><b>${eur(P.total[y])}</b></td><td>${eur(P.initial + P.versements[y])}</td><td style="color:var(--ok)">+${eur(interets)}</td><td>${eur(reel)}</td></tr>`;
+  };
+  return `<section class="carte"><h2>Projection de l’épargne</h2>
+    <div class="defile"><table class="tab"><tr class="mut"><td>Horizon</td><td>Épargne</td><td>Versé</td><td>Intérêts</td><td>En € d’aujourd’hui</td></tr>${[5, 10, 15].map(ligne).join('')}</table></div>
+    ${grapheLigne('projEpargne', pts, [{ nom: 'Épargne projetée', c: '--c1' }, { nom: 'Montant versé (départ + versements)', c: '--c2', dash: '5 4' }], 'Épargne projetée sur 15 ans', l => l.slice(0, 4))}
+    <details><summary>Détail par compte et hypothèses</summary>
+      <div class="defile"><table class="tab"><tr class="mut"><td>Compte</td><td>Taux</td><td>Par mois</td><td>5 ans</td><td>10 ans</td><td>15 ans</td></tr>
+        ${P.comptes.map(c => `<tr><td>${esc(c.nom)}</td><td>${String(c.taux).replace('.', ',')} %</td><td>${c.mens ? eur(c.mens) : '—'}</td><td>${eur(c.v[5])}</td><td>${eur(c.v[10])}</td><td>${eur(c.v[15])}</td></tr>`).join('')}</table></div>
+      <div class="duo" style="padding-top:8px">${fld('Inflation annuelle (%)', `<input type="number" step="0.1" min="0" inputmode="decimal" data-pat="inflation" value="${pat.inflation}">`)}${fld('Rendement de l’épargne non détaillée (%)', `<input type="number" step="0.1" min="0" inputmode="decimal" data-pat="epargneTaux" value="${pat.epargneTaux}">`)}</div>
+      <small>Les taux et versements se règlent dans la fiche de chaque compte (touchez-le). Un compte sans taux est compté à 0 %.</small></details>
+    <small>Projection théorique : taux et versements constants, intérêts réinvestis, avant impôts, prélèvements sociaux et frais. Les taux des livrets réglementés changent, et les placements en actions ou en unités de compte peuvent perdre de la valeur : ce n’est pas une garantie.</small></section>`;
+}
