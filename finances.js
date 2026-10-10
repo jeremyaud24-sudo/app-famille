@@ -17,7 +17,7 @@ function evenementsFinanciers(depuis, jusqua) {
   let ym = depuis.slice(0, 7);
   const fin = jusqua.slice(0, 7);
   while (ym <= fin) {
-    etat.recurrents.forEach(r => {
+    etat.recurrents.filter(r => r.actif !== false).forEach(r => {
       const date = `${ym}-${pad(Math.min(r.jour, 28))}`;
       if (date > depuis && date <= jusqua) out.push({ date, libelle: r.libelle, montant: r.montant });
     });

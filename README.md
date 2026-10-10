@@ -19,6 +19,10 @@ Application familiale installable (PWA), en français, sans dépendances ni buil
 - **Trésorerie** : prévision du solde sur 45 jours d'après les opérations récurrentes, alertes de plafond et de rythme.
 - **Patrimoine** : actifs, dettes, patrimoine net et son évolution.
 - **Synchronisation** (dans l'artifact Claude) : membres, courses, tâches, agenda et repas partagés entre appareils.
+- **Plan d'investissement** : répartition mensuelle en achats seulement, suivi des exécutions.
+- **Recettes**, **Carnet de famille**, **Voyages**, **Cadeaux** : dans Listes et Famille.
+- **Accueil personnalisable** : blocs masquables et réordonnables.
+- **Budget** : opérations et opérations automatiques modifiables ou suspendables.
 - **Famille** : membres, dates de naissance, export/import JSON des données.
 
 Les données sont stockées dans le navigateur (`localStorage`). L'export JSON sert de sauvegarde ou pour transférer vers un autre appareil.

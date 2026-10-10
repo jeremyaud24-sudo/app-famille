@@ -9,7 +9,7 @@ const SECTEURS = ['Diversifié', 'Technologie', 'Santé', 'Finance', 'Industrie'
 const ENV_IMPOSABLES = ['CTO', 'Autre'];
 
 function cfg() {
-  etat.pfCfg = { pfu: 30, versement: 0, rendement: 6, mensuel: 0, annees: 20, depenses: 0, epargne: 0, realise: 0, liquidites: 0, eurusd: 1.1, ...(etat.pfCfg || {}) };
+  etat.pfCfg = { jourPlan: 5, strategie: 'cibles', pfu: 30, versement: 0, rendement: 6, mensuel: 0, annees: 20, depenses: 0, epargne: 0, realise: 0, liquidites: 0, eurusd: 1.1, ...(etat.pfCfg || {}) };
   return etat.pfCfg;
 }
 const somme = (a, f) => a.reduce((s, x) => s + f(x), 0);
@@ -234,9 +234,68 @@ function projection() {
 }
 
 
+
+// ---------- Plan d'investissement mensuel ----------
+// Répartit le versement mensuel en achats seulement (jamais de vente) : vers les lignes sous leur cible,
+// ou à parts égales entre les lignes qui ne dépassent pas 25 % si aucune cible n'est définie.
+function planAllocation(S, montant, strategie) {
+  const { ps, total } = S;
+  if (!ps.length || montant <= 0) return [];
+  const cibles = ps.filter(p => p.cible > 0);
+  let parts;
+  if (strategie === 'cibles' && cibles.length) {
+    const base = total + montant;
+    const manque = cibles.map(p => Math.max(0, p.cible / 100 * base - p.val));
+    const s = somme(manque, x => x);
+    parts = cibles.map((p, i) => (s > 0 ? manque[i] / s : p.cible / somme(cibles, c => c.cible)));
+    return cibles.map((p, i) => ({ p, montant: montant * parts[i] })).filter(l => l.montant >= 0.01).map(l => ({ ...l, qte: l.montant / l.p.coursEur }));
+  }
+  const elig = ps.filter(p => p.poids <= 25 || p.secteur === 'Diversifié');
+  const cible = elig.length ? elig : ps;
+  return cible.map(p => ({ p, montant: montant / cible.length, qte: montant / cible.length / p.coursEur }));
+}
+const planMoisFait = () => (etat.planExec || []).find(x => x.mois === aujourdhui().slice(0, 7));
+function planAlertes() {
+  const c = cfg();
+  if (!etat.pf.length || !(c.mensuel > 0) || planMoisFait() || new Date().getDate() < (c.jourPlan || 5)) return [];
+  return [[`Plan d’investissement du mois : ${eur(c.mensuel)} à investir`, 'À faire', 'warn', 'bourse']];
+}
+function bPlan(S) {
+  const c = cfg(), al = planAllocation(S, c.mensuel, c.strategie), fait = planMoisFait();
+  const hasCibles = S.ps.some(p => p.cible > 0);
+  return `
+    <section class="carte"><h2>Plan mensuel</h2>
+      <div class="duo">${champ('mensuel', 'Versement mensuel (€)', c.mensuel, '10')}${champ('jourPlan', 'Jour d’investissement (1-28)', c.jourPlan, '1', 'max="28"')}</div>
+      <div class="chips" role="group" aria-label="Répartition"><button data-act="plan-strat" data-v="cibles" aria-pressed="${c.strategie === 'cibles'}">Selon mes cibles</button><button data-act="plan-strat" data-v="egal" aria-pressed="${c.strategie === 'egal'}">Parts égales</button></div>
+      ${c.strategie === 'cibles' && !hasCibles ? '<small>Aucune cible définie sur vos lignes : la répartition est en parts égales. Ajoutez des cibles dans la fiche d’une ligne.</small>' : ''}
+      ${fait ? `<div class="cons"><span class="pill ok">Fait</span><p>Plan du mois enregistré le ${fmtDate(fait.date)} : ${eur(fait.total)} investis.</p></div>` : `<div class="cons"><span class="pill warn">À faire</span><p>Plan du mois pas encore appliqué (prévu le ${c.jourPlan || 5} du mois).</p></div>`}</section>
+    ${al.length ? `<section class="carte"><h2>Achats de ce mois</h2>
+      <div class="defile"><table class="tab"><tr class="mut"><td>Ligne</td><td>Montant</td><td>Quantité</td><td>Part</td></tr>
+        ${al.map(l => `<tr><td><b>${esc(l.p.ticker)}</b></td><td>${eur(l.montant)}</td><td>${String(Number(l.qte.toFixed(4))).replace('.', ',')}</td><td>${pc(l.montant / c.mensuel * 100)}</td></tr>`).join('')}</table></div>
+      <small>Quantités estimées aux cours enregistrés (mettez-les à jour avant d’acheter). Aucune vente n’est proposée.</small>
+      ${fait ? '' : '<button class="btn plein" data-act="plan-exec">J’ai passé ces achats</button>'}</section>`
+      : '<section class="carte"><p class="vide">Indiquez un versement mensuel pour obtenir la répartition du mois.</p></section>'}
+    ${(etat.planExec || []).length ? `<section class="carte"><h2>Historique</h2><ul class="liste">${[...etat.planExec].reverse().slice(0, 8).map(x => `<li class="rang" style="min-height:44px"><span class="rang-txt">${fmtMois(x.date)}<small>${x.lignes.map(l => esc(l.ticker)).join(', ')}</small></span><b class="num">${eur(x.total)}</b></li>`).join('')}</ul>
+      <div class="kv"><span>Total investi via le plan</span><b>${eur(somme(etat.planExec, x => x.total))}</b></div></section>` : ''}
+    <small>Règle de répartition simple, pas un conseil personnalisé. Investir régulièrement lisse le prix d’achat mais n’élimine pas le risque de perte.</small>`;
+}
+ACTIONS['plan-strat'] = el => { cfg().strategie = el.dataset.v; };
+ACTIONS['plan-exec'] = async () => {
+  const S = pfCalc(), c = cfg(), al = planAllocation(S, c.mensuel, c.strategie);
+  if (!al.length) return false;
+  if (!await confirmer(`Appliquer ${eur(c.mensuel)} d’achats sur ${al.length} ligne${pl(al.length)} ? Quantités et prix de revient seront mis à jour aux cours enregistrés.`)) return false;
+  al.forEach(l => {
+    const p = etat.pf.find(x => x.id === l.p.id);
+    p.pru = (p.qte * p.pru + l.qte * p.cours) / (p.qte + l.qte);
+    p.qte += l.qte; p.maj = aujourdhui();
+  });
+  (etat.planExec = etat.planExec || []).push({ date: aujourdhui(), mois: aujourdhui().slice(0, 7), total: c.mensuel, lignes: al.map(l => ({ ticker: l.p.ticker, montant: l.montant })) });
+  info('Plan du mois enregistré.');
+};
+
 // ---------- Interface ----------
 let bTab = 'synthese', bRep = 'type', bPer = '3m';
-const B_TABS = [['synthese', 'Synthèse'], ['lignes', 'Lignes'], ['conseils', 'Conseils'], ['outils', 'Outils']];
+const B_TABS = [['synthese', 'Synthèse'], ['lignes', 'Lignes'], ['conseils', 'Conseils'], ['plan', 'Plan'], ['outils', 'Outils']];
 const REP = [['type', 'Type'], ['secteur', 'Secteur'], ['zone', 'Zone'], ['enveloppe', 'Enveloppe']];
 const SEV = { rouge: ['bad', 'Important'], orange: ['warn', 'À surveiller'], vert: ['ok', 'Positif'], info: ['', 'Info'] };
 const COUL_PF = ['#0b8f78', '#d98a1c', '#3b73e0', '#c23b63', '#8a5cd6', '#7b8a84'];
@@ -347,7 +406,7 @@ VUES.bourse = function () {
   const S = pfCalc();
   if (!S.ps.length) return `<section class="carte"><h2>Votre portefeuille</h2><p class="mut">Ajoutez vos lignes (actions, ETF…) pour suivre la valeur, la répartition et recevoir des pistes d’amélioration. Les cours sont saisis à la main.</p>
     <button class="btn" data-act="ouvrir" data-sheet="pos">Ajouter une première ligne</button></section>`;
-  const corps = { synthese: bSynthese, lignes: bLignes, conseils: bConseils, outils: bOutils }[bTab](S);
+  const corps = { synthese: bSynthese, lignes: bLignes, conseils: bConseils, plan: bPlan, outils: bOutils }[bTab](S);
   return `<div class="chips" role="tablist" aria-label="Sections de la Bourse">${B_TABS.map(([k, n]) => `<button role="tab" data-act="btab" data-v="${k}" aria-selected="${bTab === k}">${n}</button>`).join('')}</div>${corps}`;
 };
 

@@ -6,7 +6,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 // ---------- Données ----------
-const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [] });
+const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], accueil: {} });
 let etat = charger();
 
 function charger() {
@@ -137,16 +137,16 @@ const ico = (n, t = 22) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" 
 const SECTIONS = {
   accueil: { titre: 'Accueil', vues: ['accueil'] },
   agenda: { titre: 'Agenda', vues: ['agenda'] },
-  listes: { titre: 'Listes', vues: ['courses', 'taches', 'repas'], noms: { courses: 'Courses', taches: 'Tâches', repas: 'Repas' } },
+  listes: { titre: 'Listes', vues: ['courses', 'taches', 'repas', 'recettes'], noms: { courses: 'Courses', taches: 'Tâches', repas: 'Repas', recettes: 'Recettes' } },
   argent: { titre: 'Argent', vues: ['bourse', 'budget', 'prets', 'patrimoine'], noms: { bourse: 'Bourse', budget: 'Budget', prets: 'Prêts', patrimoine: 'Patrimoine' } },
-  famille: { titre: 'Famille', vues: ['famille'] },
+  famille: { titre: 'Famille', vues: ['famille', 'carnet', 'voyages', 'cadeaux'], noms: { famille: 'Membres', carnet: 'Carnet', voyages: 'Voyages', cadeaux: 'Cadeaux' } },
 };
 const NOMS_ONGLETS = { accueil: 'Accueil', agenda: 'Agenda', listes: 'Listes', argent: 'Argent', famille: 'Famille' };
 const AJOUT = { // bouton « + » flottant par vue
-  taches: ['tache', 'Tâche'], agenda: ['event', 'Événement'], bourse: ['pos', 'Ligne'], budget: ['tx', 'Opération'], prets: ['pret', 'Prêt'], famille: ['membre', 'Membre'],
+  taches: ['tache', 'Tâche'], agenda: ['event', 'Événement'], bourse: ['pos', 'Ligne'], budget: ['tx', 'Opération'], prets: ['pret', 'Prêt'], recettes: ['recette-form', 'Recette'], carnet: ['carnet', 'Fiche'], voyages: ['voyage', 'Voyage'], cadeaux: ['cadeau', 'Idée'], famille: ['membre', 'Membre'],
 };
 let section = 'accueil';
-const sous = { listes: 'courses', argent: 'bourse' };
+const sous = { listes: 'courses', argent: 'bourse', famille: 'famille' };
 let jourSel = aujourdhui();
 let moisAff = new Date(); moisAff.setDate(1);
 let semaineAff = lundi(new Date());
@@ -183,38 +183,7 @@ function rendre() {
 
 // ---------- Vues ----------
 const VUES = {
-  accueil() {
-    const auj = aujourdhui(), demain = iso(ajouteJours(parse(auj), 1));
-    const evs = evenementsDu(auj);
-    const aFaire = etat.taches.filter(t => !t.fait), aAcheter = etat.courses.filter(c => !c.fait);
-    const repas = etat.repas[auj] || {};
-    const prochains = [];
-    for (let i = 1; i <= 30 && prochains.length < 3; i++) { const d = iso(ajouteJours(parse(auj), i)); evenementsDu(d).forEach(e => { if (prochains.length < 3) prochains.push({ ...e, date: d }); }); }
-    const anniv = etat.membres.filter(m => m.naissance && m.naissance.slice(5) === auj.slice(5));
-    const pf = etat.pf.length && typeof pfCalc === 'function' ? pfCalc() : null;
-    const rappels = [
-      ...aFaire.filter(t => t.echeance && t.echeance <= auj).map(t => [t.titre, t.echeance < auj ? 'En retard' : 'Aujourd’hui', t.echeance < auj ? 'bad' : 'warn', 'taches']),
-      ...evenementsDu(demain).map(e => [e.titre, 'Demain' + (e.heure ? ' ' + e.heure : ''), 'pri', 'agenda']),
-      ...(typeof pretsAlertes === 'function' ? pretsAlertes() : []),
-      ...(typeof alertesBudget === 'function' ? alertesBudget() : []),
-    ];
-    return `
-      ${etat.membres.length ? '' : `<section class="carte"><h2>Bienvenue</h2><p class="mut">Créez votre foyer pour partager courses, tâches et agenda. Chaque membre a sa couleur.</p><button class="btn" data-act="ouvrir" data-sheet="membre">Ajouter un premier membre</button></section>`}
-      ${anniv.map(m => `<section class="carte"><p><b>Joyeux anniversaire ${esc(m.nom)} !</b></p></section>`).join('')}
-      ${rappels.length ? `<section class="carte"><h2>À ne pas oublier</h2><ul class="liste">${rappels.map(([t, tag, cls, v]) => `<li><button class="rang" data-goto="${v}"><span class="rang-txt">${esc(t)}</span><span class="pill ${cls}">${esc(tag)}</span></button></li>`).join('')}</ul></section>` : ''}
-      <section class="carte"><div class="carte-tete"><h2>Aujourd’hui</h2><button class="lien" data-goto="agenda">Agenda</button></div>
-        ${evs.length ? `<ul class="liste">${evs.map(e => `<li class="rang"><span class="heure">${esc(e.heure || '—')}</span><span class="rang-txt">${esc(e.titre)}</span>${avatar(e.membre)}</li>`).join('')}</ul>`
-          : `<p class="vide">Journée libre.<br><button class="btn sec" data-act="ouvrir" data-sheet="event">Ajouter un événement</button></p>`}
-        ${prochains.length ? `<small>À venir : ${prochains.map(e => `${fmtDate(e.date)} · ${esc(e.titre)}`).join(' — ')}</small>` : ''}
-      </section>
-      <div class="tuiles">
-        <button class="tuile" data-goto="courses"><span class="tuile-n">${aAcheter.length}</span><span>article${pl(aAcheter.length)} à acheter</span></button>
-        <button class="tuile" data-goto="taches"><span class="tuile-n">${aFaire.length}</span><span>tâche${pl(aFaire.length)} à faire</span></button>
-      </div>
-      <button class="carte" data-goto="repas" style="text-align:left"><h2>Au menu aujourd’hui</h2>
-        <p><span class="mut">Midi</span> · ${esc(repas.midi) || '<span class="mut">à définir</span>'}<br><span class="mut">Soir</span> · ${esc(repas.soir) || '<span class="mut">à définir</span>'}</p></button>
-      ${pf ? `<button class="carte" data-goto="bourse" style="text-align:left"><h2>Portefeuille</h2><div class="bar"><b class="score">${eur(pf.total)}</b>${pillPl(pf.pl, pf.investi ? pf.pl / pf.investi * 100 : 0)}</div></button>` : ''}`;
-  },
+  accueil() { return ''; },
 
   courses() {
     const aAcheter = etat.courses.filter(c => !c.fait), panier = etat.courses.filter(c => c.fait);
@@ -280,8 +249,9 @@ const VUES = {
         <b>${fmtDate(iso(semaineAff))} → ${fmtDate(iso(jours[6]))}</b>
         <button class="icone" data-act="semaine" data-n="1" aria-label="Semaine suivante">›</button></div>
       ${jours.map(d => { const k = iso(d), r = etat.repas[k] || {}; return `<div class="jr${k === auj ? ' auj' : ''}"><h3>${fmtLong(k)}${k === auj ? ' · aujourd’hui' : ''}</h3>
-        ${fld('Midi', `<input data-repas="${k}" data-slot="midi" value="${esc(r.midi)}" placeholder="—">`)}
-        ${fld('Soir', `<input data-repas="${k}" data-slot="soir" value="${esc(r.soir)}" placeholder="—">`)}</div>`; }).join('')}
+        ${fld('Midi', `<input data-repas="${k}" data-slot="midi" list="dlRecettes" value="${esc(r.midi)}" placeholder="—">`)}
+        ${fld('Soir', `<input data-repas="${k}" data-slot="soir" list="dlRecettes" value="${esc(r.soir)}" placeholder="—">`)}</div>`; }).join('')}
+      <datalist id="dlRecettes">${etat.recettes.map(x => `<option value="${esc(x.nom)}">`).join('')}</datalist>
       <button class="btn sec plein" data-act="repas-courses">Ajouter les plats de la semaine aux courses</button>`;
   },
 
@@ -322,13 +292,14 @@ const VUES = {
           ${p ? `<div class="jauge"><i style="width:${pc}%;background:${v > p ? 'var(--bad)' : 'var(--ok)'}"></i></div>` : ''}
           <div class="bar"><small>Plafond mensuel</small><input type="number" min="0" step="10" class="plaf" data-plafond="${c}" value="${p || ''}" placeholder="€" aria-label="Plafond ${c}"></div></div>`; }).join('')}</section>
       <section class="carte"><h2>Opérations</h2><ul class="liste">
-        ${tx.map(t => `<li class="rang"><span class="rang-txt">${esc(t.libelle)}<small>${fmtDate(t.date)} · ${esc(t.cat)}${t.rec ? ' · récurrente' : ''}</small></span>
-          <b class="num" style="color:var(--${t.montant < 0 ? 'bad' : 'ok'})">${eur(t.montant)}</b>
+        ${tx.map(t => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="tx" data-id="${t.id}" aria-label="Modifier ${esc(t.libelle)}"><span class="rang-txt">${esc(t.libelle)}<small>${fmtDate(t.date)} · ${esc(t.cat)}${t.rec ? ' · automatique' : ''}</small></span>
+          <b class="num" style="color:var(--${t.montant < 0 ? 'bad' : 'ok'})">${eur(t.montant)}</b></button>
           <button class="icone" data-act="tx-del" data-id="${t.id}" aria-label="Supprimer ${esc(t.libelle)}">${ico('x', 18)}</button></li>`).join('') || '<li class="vide">Aucune opération ce mois-ci.</li>'}</ul></section>
-      <section class="carte"><div class="carte-tete"><h2>Opérations récurrentes</h2><button class="lien" data-act="ouvrir" data-sheet="recurrent">Ajouter</button></div>
-        <ul class="liste">${etat.recurrents.map(r => `<li class="rang"><span class="rang-txt">${esc(r.libelle)}<small>Le ${r.jour} de chaque mois · ${esc(r.cat)}</small></span>
-          <b class="num" style="color:var(--${r.montant < 0 ? 'bad' : 'ok'})">${eur(r.montant)}</b>
-          <button class="icone" data-act="rec-del" data-id="${r.id}" aria-label="Supprimer ${esc(r.libelle)}">${ico('x', 18)}</button></li>`).join('') || '<li class="vide">Loyer, salaire, abonnements : ajoutez-les une fois, ils s’inscrivent chaque mois.</li>'}</ul></section>
+      <section class="carte"><div class="carte-tete"><h2>Opérations automatiques</h2><button class="lien" data-act="ouvrir" data-sheet="recurrent">Ajouter</button></div>
+        <ul class="liste">${etat.recurrents.map(r => `<li class="rang ${r.actif === false ? 'fait' : ''}"><button class="rang-btn" data-act="ouvrir" data-sheet="recurrent" data-id="${r.id}" aria-label="Modifier ${esc(r.libelle)}"><span class="rang-txt">${esc(r.libelle)}<small>Le ${r.jour} de chaque mois · ${esc(r.cat)}${r.actif === false ? ' · suspendue' : ''}</small></span>
+          <b class="num" style="color:var(--${r.montant < 0 ? 'bad' : 'ok'})">${eur(r.montant)}</b></button>
+          <button class="icone" data-act="rec-del" data-id="${r.id}" aria-label="Supprimer ${esc(r.libelle)}">${ico('x', 18)}</button></li>`).join('') || '<li class="vide">Loyer, salaire, abonnements : ajoutez-les une fois, ils s’inscrivent chaque mois.</li>'}</ul>
+        <small>Touchez une ligne pour modifier le montant, le jour ou la catégorie, ou pour la suspendre.</small></section>
       <section class="carte"><h2>Importer un relevé bancaire (CSV)</h2>
         <p class="mut">Téléchargez le relevé CSV depuis le site de votre banque (date, libellé, montant ou débit/crédit). Catégories devinées, doublons ignorés.</p>
         <label class="btn sec">Choisir un fichier CSV<input type="file" id="importCsv" accept=".csv,text/csv,text/plain" hidden></label></section>`;
@@ -366,20 +337,28 @@ const SHEETS = {
     ${fld('Prénom', '<input name="nom" required autocomplete="off">')}
     ${fld('Date de naissance (facultatif)', '<input type="date" name="naissance">')}
     <button class="btn plein">Ajouter</button></form>` }),
-  tx: () => ({ titre: 'Nouvelle opération', corps: `<form class="formulaire" data-form="tx">
-    <div class="choix" role="radiogroup" aria-label="Type"><label><input type="radio" name="type" value="-1" checked>Dépense</label><label><input type="radio" name="type" value="1">Revenu</label></div>
-    ${fld('Libellé', '<input name="libelle" required autocomplete="off">')}
-    <div class="duo">${fld('Montant (€)', '<input type="number" name="montant" step="0.01" min="0" required inputmode="decimal">')}
-    ${fld('Date', `<input type="date" name="date" value="${moisBudget === aujourdhui().slice(0, 7) ? aujourdhui() : moisBudget + '-01'}" required>`)}</div>
-    ${fld('Catégorie', `<select name="cat"><option value="">Automatique</option>${NOMS_CATS.filter(c => c !== 'Revenus').map(c => `<option>${c}</option>`).join('')}</select>`)}
-    <button class="btn plein">Ajouter</button></form>` }),
+  tx: d => {
+    const t = d.id ? etat.tx.find(x => x.id === d.id) : null, neg = !t || t.montant < 0;
+    return { titre: t ? 'Modifier l’opération' : 'Nouvelle opération', corps: `<form class="formulaire" data-form="tx"><input type="hidden" name="id" value="${t ? t.id : ''}">
+    <div class="choix" role="radiogroup" aria-label="Type"><label><input type="radio" name="type" value="-1"${neg ? ' checked' : ''}>Dépense</label><label><input type="radio" name="type" value="1"${neg ? '' : ' checked'}>Revenu</label></div>
+    ${fld('Libellé', `<input name="libelle" required autocomplete="off" value="${esc(t ? t.libelle : '')}">`)}
+    <div class="duo">${fld('Montant (€)', `<input type="number" name="montant" step="0.01" min="0" required inputmode="decimal" value="${t ? Math.abs(t.montant) : ''}">`)}
+    ${fld('Date', `<input type="date" name="date" value="${t ? t.date : (moisBudget === aujourdhui().slice(0, 7) ? aujourdhui() : moisBudget + '-01')}" required>`)}</div>
+    ${fld('Catégorie', `<select name="cat"><option value="">Automatique</option>${NOMS_CATS.filter(c => c !== 'Revenus').map(c => `<option${t && t.cat === c ? ' selected' : ''}>${c}</option>`).join('')}</select>`)}
+    <button class="btn plein">${t ? 'Enregistrer' : 'Ajouter'}</button></form>` };
+  },
 };
-SHEETS.recurrent = () => ({ titre: 'Opération récurrente', corps: `<form class="formulaire" data-form="recurrent">
-  <div class="choix" role="radiogroup" aria-label="Type"><label><input type="radio" name="type" value="-1" checked>Dépense</label><label><input type="radio" name="type" value="1">Revenu</label></div>
-  ${fld('Libellé', '<input name="libelle" required autocomplete="off" placeholder="Loyer">')}
-  <div class="duo">${fld('Montant (€)', '<input type="number" name="montant" step="0.01" min="0" required inputmode="decimal">')}${fld('Jour du mois (1-28)', '<input type="number" name="jour" min="1" max="28" value="1" required inputmode="numeric">')}</div>
-  ${fld('Catégorie', `<select name="cat"><option value="">Automatique</option>${NOMS_CATS.filter(c => c !== 'Revenus').map(c => `<option>${c}</option>`).join('')}</select>`)}
-  <button class="btn plein">Ajouter</button></form>` });
+SHEETS.recurrent = d => {
+  const r = d.id ? etat.recurrents.find(x => x.id === d.id) : null, neg = !r || r.montant < 0;
+  return { titre: r ? 'Modifier l’opération automatique' : 'Opération automatique', corps: `<form class="formulaire" data-form="recurrent"><input type="hidden" name="id" value="${r ? r.id : ''}">
+  <div class="choix" role="radiogroup" aria-label="Type"><label><input type="radio" name="type" value="-1"${neg ? ' checked' : ''}>Dépense</label><label><input type="radio" name="type" value="1"${neg ? '' : ' checked'}>Revenu</label></div>
+  ${fld('Libellé', `<input name="libelle" required autocomplete="off" placeholder="Loyer" value="${esc(r ? r.libelle : '')}">`)}
+  <div class="duo">${fld('Montant (€)', `<input type="number" name="montant" step="0.01" min="0" required inputmode="decimal" value="${r ? Math.abs(r.montant) : ''}">`)}${fld('Jour du mois (1-28)', `<input type="number" name="jour" min="1" max="28" required inputmode="numeric" value="${r ? r.jour : 1}">`)}</div>
+  ${fld('Catégorie', `<select name="cat"><option value="">Automatique</option>${NOMS_CATS.filter(c => c !== 'Revenus').map(c => `<option${r && r.cat === c ? ' selected' : ''}>${c}</option>`).join('')}</select>`)}
+  ${r ? `<label class="rang-main"><input type="checkbox" class="coche" name="actif"${r.actif === false ? '' : ' checked'}><span class="rang-txt">Active<small>Décochez pour suspendre sans supprimer</small></span></label>
+  <label class="rang-main"><input type="checkbox" class="coche" name="maj" checked><span class="rang-txt">Mettre aussi à jour l’opération de ce mois<small>Sinon la modification s’applique à partir du mois prochain</small></span></label>` : ''}
+  <button class="btn plein">${r ? 'Enregistrer' : 'Ajouter'}</button></form>` };
+};
 SHEETS.objectif = () => ({ titre: 'Nouvel objectif d’épargne', corps: `<form class="formulaire" data-form="objectif">
   ${fld('Nom', '<input name="nom" required autocomplete="off" placeholder="Vacances d’été">')}
   <div class="duo">${fld('Montant visé (€)', '<input type="number" name="cible" step="1" min="1" required inputmode="decimal">')}${fld('Déjà épargné (€)', '<input type="number" name="actuel" step="1" min="0" value="0" inputmode="decimal">')}</div>
@@ -429,7 +408,7 @@ function feuille(titre, corps) {
 const fermerFeuille = () => document.querySelectorAll('.modal').forEach(m => m.remove());
 
 // ---------- Actions ----------
-const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del', 'pret-del']);
+const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del', 'pret-del', 'recette-del', 'carnet-del', 'cadeau-del', 'voyage-del', 'voy-item-del', 'voy-etape-del', 'voy-dep-del']);
 const ACTIONS = {
   'ouvrir': el => { ouvrirFeuille(el.dataset.sheet, el.dataset); return 'vue'; },
   'filtre': el => { filtreT = el.dataset.v; return 'vue'; },
@@ -441,6 +420,7 @@ const ACTIONS = {
     if (r.date) { jourSel = r.date; moisAff = new Date(parse(r.date).getFullYear(), parse(r.date).getMonth(), 1); semaineAff = lundi(parse(r.date)); }
     if (r.mois) moisBudget = r.mois;
     if (r.onglet) bTab = r.onglet;
+    if (r.voy) voySel = r.voy;
     aller(r.vue);
     return 'vue';
   },
@@ -515,9 +495,23 @@ const FORMS = {
   event: f => { etat.events.push({ id: uid(), titre: f.titre.value.trim(), date: f.date.value, heure: f.heure.value, membre: f.membre.value, rec: f.rec.value }); jourSel = f.date.value; moisAff = new Date(parse(jourSel).getFullYear(), parse(jourSel).getMonth(), 1); },
   tx: f => {
     const m = Math.abs(Number(f.montant.value)) * Number(f.type.value);
-    etat.tx.push({ id: uid(), date: f.date.value, libelle: f.libelle.value.trim(), montant: m, cat: m > 0 ? 'Revenus' : (f.cat.value || devine(f.libelle.value)) });
+    const o = { date: f.date.value, libelle: f.libelle.value.trim(), montant: m, cat: m > 0 ? 'Revenus' : (f.cat.value || devine(f.libelle.value)) };
+    const i = f.id && f.id.value ? etat.tx.findIndex(x => x.id === f.id.value) : -1;
+    if (i >= 0) Object.assign(etat.tx[i], o); else etat.tx.push({ id: uid(), ...o });
   },
-  recurrent: f => { etat.recurrents.push({ id: uid(), libelle: f.libelle.value.trim(), montant: Math.abs(Number(f.montant.value)) * Number(f.type.value), jour: Number(f.jour.value) || 1, cat: Number(f.type.value) > 0 ? 'Revenus' : (f.cat.value || devine(f.libelle.value)), dernier: '' }); appliquerRecurrents(); },
+  recurrent: f => {
+    const m = Math.abs(Number(f.montant.value)) * Number(f.type.value);
+    const o = { libelle: f.libelle.value.trim(), montant: m, jour: Math.min(28, Math.max(1, Number(f.jour.value) || 1)), cat: m > 0 ? 'Revenus' : (f.cat.value || devine(f.libelle.value)) };
+    const r = f.id && f.id.value ? etat.recurrents.find(x => x.id === f.id.value) : null;
+    if (!r) { etat.recurrents.push({ id: uid(), ...o, dernier: '' }); appliquerRecurrents(); return; }
+    Object.assign(r, o, { actif: f.actif.checked });
+    if (f.maj.checked) {
+      const ym = aujourdhui().slice(0, 7), cleTx = `${r.id}:${ym}`, i = etat.tx.findIndex(t => t.rec === cleTx), date = `${ym}-${pad(r.jour)}`;
+      if (i >= 0 && (date <= aujourdhui() && r.actif)) Object.assign(etat.tx[i], { libelle: o.libelle, montant: o.montant, cat: o.cat, date });
+      else if (i >= 0) { etat.tx.splice(i, 1); r.dernier = iso(new Date(Number(ym.slice(0, 4)), Number(ym.slice(5)) - 2, 1)).slice(0, 7); } // sera recréée à sa nouvelle date
+    }
+    appliquerRecurrents();
+  },
   objectif: f => etat.objectifs.push({ id: uid(), nom: f.nom.value.trim(), cible: Number(f.cible.value), actuel: Number(f.actuel.value) || 0, date: f.date.value }),
   membre: f => {
     const m = { id: uid(), nom: f.nom.value.trim(), couleur: COULEURS[etat.membres.length % COULEURS.length], naissance: f.naissance.value };
@@ -532,6 +526,7 @@ function appliquerRecurrents() {
   const auj = aujourdhui(), cur = auj.slice(0, 7);
   let change = false;
   etat.recurrents.forEach(r => {
+    if (r.actif === false) return;
     let ym = r.dernier ? moisSuivant(r.dernier) : cur;
     while (ym <= cur) {
       const date = `${ym}-${pad(Math.min(r.jour, 28))}`;

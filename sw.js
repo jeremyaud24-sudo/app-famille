@@ -1,5 +1,5 @@
 const CACHE = 'famille-v2';
-const FILES = ['./', 'index.html', 'style.css', 'app.js', 'graphes.js', 'bourse.js', 'prets.js', 'finances.js', 'sync.js', 'manifest.json', 'icons/icon.svg'];
+const FILES = ['./', 'index.html', 'style.css', 'app.js', 'graphes.js', 'bourse.js', 'prets.js', 'finances.js', 'vie.js', 'accueil.js', 'sync.js', 'manifest.json', 'icons/icon.svg'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
   self.skipWaiting();

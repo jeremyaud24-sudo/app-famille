@@ -197,3 +197,7 @@ input[type=search]{appearance:none}
 .tip-ligne span{flex:1;opacity:.8}
 .tip-ligne b{font-variant-numeric:tabular-nums}
 .seg.dense button{font-size:.8rem;padding:9px 2px}
+.rang-btn{flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:none;border:0;text-align:left;color:inherit;padding:6px 0;min-height:44px}
+button.pill{border:0;cursor:pointer;min-height:34px;padding:4px 14px}
+.icone[disabled]{opacity:.3}
+textarea{min-height:90px;resize:vertical}
