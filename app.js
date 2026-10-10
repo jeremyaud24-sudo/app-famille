@@ -6,7 +6,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 // ---------- Données ----------
-const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], accueil: {} });
+const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], accueil: {}, sportProfils: [], sportPlan: [], sportSeances: [] });
 let etat = charger();
 
 function charger() {
@@ -129,6 +129,7 @@ const ICONES = {
   famille: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15.5 14.2c3 0 5.5 2 5.5 5.3"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  sport: '<path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/>',
   recherche: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/>',
 };
 const ico = (n, t = 22) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES[n]}</svg>`;
@@ -139,14 +140,15 @@ const SECTIONS = {
   agenda: { titre: 'Agenda', vues: ['agenda'] },
   listes: { titre: 'Listes', vues: ['courses', 'taches', 'repas', 'recettes'], noms: { courses: 'Courses', taches: 'Tâches', repas: 'Repas', recettes: 'Recettes' } },
   argent: { titre: 'Argent', vues: ['bourse', 'budget', 'prets', 'patrimoine'], noms: { bourse: 'Bourse', budget: 'Budget', prets: 'Prêts', patrimoine: 'Patrimoine' } },
-  famille: { titre: 'Famille', vues: ['famille', 'carnet', 'voyages', 'cadeaux'], noms: { famille: 'Membres', carnet: 'Carnet', voyages: 'Voyages', cadeaux: 'Cadeaux' } },
+  sport: { titre: 'Sport', vues: ['suivisport', 'plansport', 'conseilssport'], noms: { suivisport: 'Suivi', plansport: 'Plan', conseilssport: 'Conseils' } },
+  famille: { titre: 'Famille', vues: ['membres', 'carnet', 'voyages', 'cadeaux'], noms: { membres: 'Membres', carnet: 'Carnet', voyages: 'Voyages', cadeaux: 'Cadeaux' } },
 };
-const NOMS_ONGLETS = { accueil: 'Accueil', agenda: 'Agenda', listes: 'Listes', argent: 'Argent', famille: 'Famille' };
+const NOMS_ONGLETS = { accueil: 'Accueil', agenda: 'Agenda', listes: 'Listes', argent: 'Argent', sport: 'Sport', famille: 'Famille' };
 const AJOUT = { // bouton « + » flottant par vue
-  taches: ['tache', 'Tâche'], agenda: ['event', 'Événement'], bourse: ['pos', 'Ligne'], budget: ['tx', 'Opération'], prets: ['pret', 'Prêt'], recettes: ['recette-form', 'Recette'], carnet: ['carnet', 'Fiche'], voyages: ['voyage', 'Voyage'], cadeaux: ['cadeau', 'Idée'], famille: ['membre', 'Membre'],
+  taches: ['tache', 'Tâche'], agenda: ['event', 'Événement'], bourse: ['pos', 'Ligne'], budget: ['tx', 'Opération'], prets: ['pret', 'Prêt'], recettes: ['recette-form', 'Recette'], suivisport: ['seance', 'Séance'], plansport: ['plan-item', 'Séance prévue'], carnet: ['carnet', 'Fiche'], voyages: ['voyage', 'Voyage'], cadeaux: ['cadeau', 'Idée'], membres: ['membre', 'Membre'],
 };
 let section = 'accueil';
-const sous = { listes: 'courses', argent: 'bourse', famille: 'famille' };
+const sous = { listes: 'courses', argent: 'bourse', famille: 'membres', sport: 'suivisport' };
 let jourSel = aujourdhui();
 let moisAff = new Date(); moisAff.setDate(1);
 let semaineAff = lundi(new Date());
@@ -305,7 +307,7 @@ const VUES = {
         <label class="btn sec">Choisir un fichier CSV<input type="file" id="importCsv" accept=".csv,text/csv,text/plain" hidden></label></section>`;
   },
 
-  famille() {
+  membres() {
     return `
       <section class="carte"><h2>Membres</h2><ul class="liste">
         ${etat.membres.map(m => `<li class="rang">${avatar(m.id, true)}<span class="rang-txt"><b>${esc(m.nom)}</b>${m.naissance ? `<small>Né(e) le ${fmtDate(m.naissance)}</small>` : ''}</span>
@@ -379,7 +381,7 @@ function rechercher(q) {
   etat.recurrents.filter(r => m(r.libelle)).forEach(r => add('Budget', r.libelle, 'Opération récurrente', { vue: 'budget' }));
   etat.pf.filter(p => m(p.ticker) || m(p.nom)).forEach(p => add('Bourse', p.ticker + (p.nom ? ' · ' + p.nom : ''), 'Ligne du portefeuille', { vue: 'bourse', onglet: 'lignes' }));
   etat.prets.filter(x => m(x.nom)).forEach(x => add('Prêts', x.nom, 'Prêt immobilier ou crédit', { vue: 'prets' }));
-  etat.membres.filter(x => m(x.nom)).forEach(x => add('Famille', x.nom, 'Membre', { vue: 'famille' }));
+  etat.membres.filter(x => m(x.nom)).forEach(x => add('Famille', x.nom, 'Membre', { vue: 'membres' }));
   return R;
 }
 function afficherResultats(q) {
@@ -408,7 +410,7 @@ function feuille(titre, corps) {
 const fermerFeuille = () => document.querySelectorAll('.modal').forEach(m => m.remove());
 
 // ---------- Actions ----------
-const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del', 'pret-del', 'recette-del', 'carnet-del', 'cadeau-del', 'voyage-del', 'voy-item-del', 'voy-etape-del', 'voy-dep-del']);
+const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del', 'pret-del', 'recette-del', 'carnet-del', 'cadeau-del', 'voyage-del', 'voy-item-del', 'voy-etape-del', 'voy-dep-del', 'seance-del', 'plan-item-del']);
 const ACTIONS = {
   'ouvrir': el => { ouvrirFeuille(el.dataset.sheet, el.dataset); return 'vue'; },
   'filtre': el => { filtreT = el.dataset.v; return 'vue'; },
@@ -454,6 +456,9 @@ const ACTIONS = {
     if (etat.actif === id) etat.actif = null;
     etat.taches.forEach(t => { if (t.membre === id) t.membre = ''; if (t.par === id) t.par = null; });
     etat.events.forEach(e => { if (e.membre === id) e.membre = ''; });
+    etat.sportSeances = etat.sportSeances.filter(x => x.membre !== id);
+    etat.sportPlan = etat.sportPlan.filter(x => x.membre !== id);
+    etat.sportProfils = etat.sportProfils.filter(x => x.id !== id);
   },
   'mois-budget': el => {
     const [y, m] = moisBudget.split('-').map(Number);

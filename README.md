@@ -23,6 +23,7 @@ Application familiale installable (PWA), en français, sans dépendances ni buil
 - **Recettes**, **Carnet de famille**, **Voyages**, **Cadeaux** : dans Listes et Famille.
 - **Accueil personnalisable** : blocs masquables et réordonnables.
 - **Budget** : opérations et opérations automatiques modifiables ou suspendables.
+- **Sport** : plan d'entraînement et suivi par membre, charge hebdomadaire, conseils de récupération et d'alimentation adaptés aux séances.
 - **Famille** : membres, dates de naissance, export/import JSON des données.
 
 Les données sont stockées dans le navigateur (`localStorage`). L'export JSON sert de sauvegarde ou pour transférer vers un autre appareil.

@@ -1,9 +1,9 @@
 'use strict';
 // Synchronisation des données partagées de la famille entre appareils, via la capacité « db » de l'artifact.
-// Partagé : membres, courses, tâches, événements, repas, recettes, carnet, voyages.
+// Partagé : membres, courses, tâches, événements, repas, recettes, carnet, voyages, sport (profils, plans, séances).
 // Jamais envoyé : bourse, prêts, budget, patrimoine, cadeaux, membre actif (restent sur l'appareil).
 
-const SYNC_COLLS = { membres: ['f_membres', 'asc'], taches: ['f_taches', 'asc'], events: ['f_events', 'asc'], courses: ['f_courses', 'desc'], repas: ['f_repas', 'asc'], recettes: ['f_recettes', 'asc'], carnet: ['f_carnet', 'asc'], voyages: ['f_voyages', 'asc'] };
+const SYNC_COLLS = { membres: ['f_membres', 'asc'], taches: ['f_taches', 'asc'], events: ['f_events', 'asc'], courses: ['f_courses', 'desc'], repas: ['f_repas', 'asc'], recettes: ['f_recettes', 'asc'], carnet: ['f_carnet', 'asc'], voyages: ['f_voyages', 'asc'], sportProfils: ['f_sport_profils', 'asc'], sportPlan: ['f_sport_plan', 'asc'], sportSeances: ['f_sport_seances', 'asc'] };
 
 const stable = v => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x)
   ? Object.fromEntries(Object.entries(x).filter(([, y]) => y !== undefined).sort(([a], [b]) => (a < b ? -1 : 1))) : x));
@@ -119,7 +119,7 @@ function syncCarte() {
   };
   return `<section class="carte"><div class="carte-tete"><h2>Synchronisation</h2><span class="pill ${syncStatut === 'ok' ? 'ok' : syncStatut === 'erreur' ? 'bad' : ''}">${syncStatut === 'ok' ? 'Active' : syncStatut === 'pause' ? 'Pause' : syncStatut === 'lecture' ? 'Lecture' : syncStatut === 'erreur' ? 'Erreur' : '…'}</span></div>
     <p class="mut">${T[syncStatut] || ''}</p>
-    <small>Partagé entre appareils : membres, courses, tâches, agenda, repas, recettes, carnet et voyages. Reste sur chaque appareil : bourse, prêts, budget, patrimoine, cadeaux (pour les surprises) et choix du membre actif.</small>
+    <small>Partagé entre appareils : membres, courses, tâches, agenda, repas, recettes, carnet, voyages et sport (dont le poids saisi dans les profils sportifs). Reste sur chaque appareil : bourse, prêts, budget, patrimoine, cadeaux (pour les surprises) et choix du membre actif.</small>
     ${syncStatut === 'ok' || syncStatut === 'erreur' || syncStatut === 'lecture' ? '<button class="btn sec" data-act="sync-toggle">Désactiver sur cet appareil</button>' : syncStatut === 'pause' ? '<button class="btn" data-act="sync-toggle">Activer</button>' : ''}</section>`;
 }
 if (typeof ACTIONS !== 'undefined') {

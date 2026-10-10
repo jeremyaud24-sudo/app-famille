@@ -42,28 +42,28 @@ function grapheLigne(id, pts, series, titre, fmtX = fmtCourt) {
     ${vueTable(['Date', ...series.map(s => s.nom)], pts.map(p => [fmtX(p.label), ...p.v.map(eurCourt)]))}</figure>`;
 }
 
-function grapheBarres(id, mois, series, titre) {
+function grapheBarres(id, mois, series, titre, fmtV = eurCourt) {
   const W = 340, H = 190, L = 50, R = 8, T = 10, B = 26;
   const max = Math.max(1, ...mois.flatMap(m => m.v)) * 1.1;
   const Y = v => T + (1 - v / max) * (H - T - B), base = H - B;
-  const col = (W - L - R) / mois.length, bw = Math.min(18, col / 2 - 3);
+  const col = (W - L - R) / mois.length, bw = series.length === 1 ? Math.min(22, col - 8) : Math.min(18, col / 2 - 3);
   const barre = (x, v) => {
     const y = Y(v), h = base - y; if (h < 0.5) return '';
     const r = Math.min(4, h / 2, bw / 2);
     return `d="M${x},${base} V${y + r} Q${x},${y} ${x + r},${y} H${x + bw - r} Q${x + bw},${y} ${x + bw},${y + r} V${base} Z"`;
   };
   const corps = mois.map((m, i) => {
-    const cx = L + col * (i + .5), tip = JSON.stringify({ titre: m.label, rows: series.map((s, k) => ({ c: s.c, nom: s.nom, val: eurCourt(m.v[k]) })) });
-    return `${m.v.map((v, k) => { const b = barre(k ? cx + 1 : cx - bw - 1, v); return b ? `<path ${b} fill="var(${series[k].c})"/>` : ''; }).join('')}
+    const cx = L + col * (i + .5), tip = JSON.stringify({ titre: m.label, rows: series.map((s, k) => ({ c: s.c, nom: s.nom, val: fmtV(m.v[k]) })) });
+    return `${m.v.map((v, k) => { const b = barre(series.length === 1 ? cx - bw / 2 : k ? cx + 1 : cx - bw - 1, v); return b ? `<path ${b} fill="var(${series[k].c})"/>` : ''; }).join('')}
       <text x="${cx}" y="${H - 8}" font-size="10" fill="var(--mut)" text-anchor="middle">${esc(m.court)}</text>
       <rect x="${L + col * i}" y="${T}" width="${col}" height="${H - T - B}" fill="transparent" tabindex="0" data-tip='${esc(tip)}' aria-label="${esc(m.label)}"/>`;
   }).join('');
   return `<figure class="graphe"><figcaption class="mut">${esc(titre)}</figcaption>
     <ul class="legende">${series.map(cleLegende).join('')}</ul>
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(titre)}">
-      ${[0, max / 2, max].map(t => `<line x1="${L}" x2="${W - R}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}" stroke="var(--line)"/><text x="${L - 6}" y="${(Y(t) + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--mut)">${eurCourt(t)}</text>`).join('')}
+      ${[0, max / 2, max].map(t => `<line x1="${L}" x2="${W - R}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}" stroke="var(--line)"/><text x="${L - 6}" y="${(Y(t) + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--mut)">${fmtV(t)}</text>`).join('')}
       ${corps}</svg>
-    ${vueTable(['Mois', ...series.map(s => s.nom)], mois.map(m => [m.label, ...m.v.map(eurCourt)]))}</figure>`;
+    ${vueTable(['Mois', ...series.map(s => s.nom)], mois.map(m => [m.label, ...m.v.map(fmtV)]))}</figure>`;
 }
 
 // ---------- Infobulle (survol et focus clavier) ----------

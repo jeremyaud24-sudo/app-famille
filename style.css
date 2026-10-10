@@ -201,3 +201,5 @@ input[type=search]{appearance:none}
 button.pill{border:0;cursor:pointer;min-height:34px;padding:4px 14px}
 .icone[disabled]{opacity:.3}
 textarea{min-height:90px;resize:vertical}
+.tabs button span.pastille{width:46px}
+.tabs button{font-size:.68rem}

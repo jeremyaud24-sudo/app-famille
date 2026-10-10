@@ -29,6 +29,17 @@ const BLOCS = {
   }],
   menu: ['Menu du jour', () => { const r = etat.repas[aujourdhui()] || {};
     return `<button class="carte" data-goto="repas" style="text-align:left"><h2>Au menu aujourd’hui</h2><p><span class="mut">Midi</span> · ${esc(r.midi) || '<span class="mut">à définir</span>'}<br><span class="mut">Soir</span> · ${esc(r.soir) || '<span class="mut">à définir</span>'}</p></button>`; }],
+  sport: ['Sport du jour', () => {
+    const m = membreSport();
+    if (!m) return '';
+    const auj = aujourdhui(), prevu = planDe(m.id).filter(x => x.jour === jourIdx(auj)), faits = seancesDe(m.id).filter(s => s.date === auj);
+    const p = profilSport(m.id), s0 = statsSemaine(m.id, semaine(0)), objH = objectifHebdo(m, p);
+    if (!prevu.length && !faits.length && !s0.n && !planDe(m.id).length) return '';
+    const reste = prevu.filter(x => !faits.some(s => s.type === x.type));
+    return `<button class="carte" data-goto="suivisport" style="text-align:left"><h2>Sport · ${esc(m.nom)}</h2>
+      <p>${reste.length ? reste.map(x => `<b>${esc(x.titre || nomSport(x.type))}</b> · ${x.duree} min`).join('<br>') : faits.length ? 'Séance du jour enregistrée.' : 'Jour de repos.'}</p>
+      <div class="jauge"><i style="width:${Math.min(100, s0.minutes / objH * 100)}%;background:var(--pri)"></i></div><small>${s0.minutes} / ${objH} min cette semaine</small></button>`;
+  }],
   tresorerie: ['Trésorerie', () => {
     const c = cfgTreso();
     if (c.solde == null) return '';
