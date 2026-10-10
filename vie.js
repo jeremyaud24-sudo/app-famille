@@ -147,7 +147,8 @@ SHEETS.voyage = d => {
   return { titre: v ? 'Modifier le voyage' : 'Nouveau voyage', corps: `<form class="formulaire" data-form="voyage"><input type="hidden" name="id" value="${v ? v.id : ''}">
     ${fld('Nom', `<input name="nom" required autocomplete="off" value="${esc(val(v, 'nom'))}" placeholder="Vacances d’été">`)}
     ${fld('Destination', `<input name="destination" autocomplete="off" value="${esc(val(v, 'destination'))}">`)}
-    <div class="duo">${fld('Départ', `<input type="date" name="debut" required value="${esc(val(v, 'debut'))}">`)}${fld('Retour', `<input type="date" name="fin" required value="${esc(val(v, 'fin'))}">`)}</div>
+    <div class="duo">${fld('Départ', `<input type="date" name="debut" required value="${esc(val(v, 'debut'))}">`)}${fld('Nombre de jours', `<input type="number" name="jours" min="1" max="21" step="1" inputmode="numeric" value="${v ? nbJoursVoyage(v) : ''}" placeholder="ex. 5">`)}</div>
+    ${fld('Retour (calculé si le nombre de jours est renseigné)', `<input type="date" name="fin" value="${esc(val(v, 'fin'))}">`)}
     <div class="duo">${fld('Voyageurs', `<select name="voyageurs">${optSel(VOYAGEURS, val(v, 'voyageurs', etat.membres.length >= 3 ? 'famille' : 'couple'))}</select>`)}${fld('Rythme', `<select name="rythme">${optSel(RYTHMES, val(v, 'rythme', 'equilibre'))}</select>`)}</div>
     ${fld('Budget (€, facultatif)', `<input type="number" name="budget" min="0" step="50" inputmode="decimal" value="${val(v, 'budget', '') || ''}">`)}
     <small>Avec une destination et des dates, l’application propose un programme d’activités adapté aux voyageurs.</small>
@@ -160,8 +161,15 @@ SHEETS['voy-dep'] = () => ({ titre: 'Nouvelle dépense', corps: `<form class="fo
   <div class="duo">${fld('Libellé', '<input name="txt" required autocomplete="off" placeholder="Hôtel">')}${fld('Montant (€)', '<input type="number" name="montant" min="0" step="0.01" required inputmode="decimal">')}</div>
   <button class="btn plein">Ajouter</button></form>` });
 const voyAct = () => etat.voyages.find(x => x.id === voySel);
+// Retour : la date saisie si elle a été modifiée, sinon départ + (jours - 1) quand le nombre de jours est saisi
+const finVoyage = (f, ancien) => {
+  const n = Math.round(Number(f.jours.value)), dateModifiee = ancien ? f.fin.value !== ancien.fin : !!f.fin.value;
+  let fin = f.fin.value;
+  if (n >= 1 && n <= 21 && !dateModifiee) fin = iso(ajouteJours(parse(f.debut.value), n - 1));
+  return !fin || fin < f.debut.value ? f.debut.value : fin;
+};
 FORMS.voyage = f => {
-  const o = { nom: f.nom.value.trim(), destination: f.destination.value.trim(), debut: f.debut.value, fin: f.fin.value < f.debut.value ? f.debut.value : f.fin.value, budget: Number(f.budget.value) || 0, voyageurs: f.voyageurs.value, rythme: f.rythme.value };
+  const o = { nom: f.nom.value.trim(), destination: f.destination.value.trim(), debut: f.debut.value, fin: finVoyage(f, etat.voyages.find(x => x.id === f.id.value)), budget: Number(f.budget.value) || 0, voyageurs: f.voyageurs.value, rythme: f.rythme.value };
   const i = etat.voyages.findIndex(x => x.id === f.id.value);
   let v;
   if (i >= 0) {
