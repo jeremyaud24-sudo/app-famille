@@ -25,7 +25,7 @@ Application familiale installable (PWA), en français, sans dépendances ni buil
 - **Budget** : opérations et opérations automatiques modifiables ou suspendables.
 - **Sport** : plan d'entraînement et suivi par membre, charge hebdomadaire, conseils de récupération et d'alimentation adaptés aux séances.
 - **Suivi d'allure** (course, marche, vélo, natation), estimations 10 km et semi, écart à l'allure prévue du programme.
-- **Menus de la semaine** : 7 dîners qui changent chaque semaine, validation d’un repas (planifié + ingrédients ajoutés aux courses, annulable), 30 recettes complètes, adaptés au sport (glucides la veille d'une sortie longue, protéines après le renfo).
+- **Menus de la semaine** : 14 repas (midi et soir) qui changent chaque semaine, invalidation d’une recette pour en obtenir une nouvelle, validation d’un repas (planifié + ingrédients ajoutés aux courses, annulable), 50 recettes complètes, adaptés au sport (glucides la veille d'une sortie longue, protéines après le renfo).
 - **Voyages** : programme jour par jour adapté aux voyageurs (seul, couple, famille), proposé par Claude dans l'artifact, modèle générique sinon.
 - **Famille** : membres, dates de naissance, export/import JSON des données.
 

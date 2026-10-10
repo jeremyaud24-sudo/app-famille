@@ -3,7 +3,7 @@
 // Le menu est déterministe : la même semaine donne toujours les mêmes idées, et les idées des 2 semaines précédentes sont évitées.
 // Il s'adapte au sport : repas riche en glucides la veille d'une sortie longue, repas protéiné les jours de renforcement.
 
-const R = (id, nom, tags, temps, ingredients, etapes) => ({ id, nom, tags, temps, portions: 4, ingredients, etapes });
+const R = (id, nom, tags, temps, ingredients, etapes, moment = 'soir') => ({ id, nom, tags, temps, portions: 4, ingredients, etapes, m: moment });
 const CATALOGUE = [
   R('omelette', 'Omelette aux légumes et salade', ['rapide', 'veggie', 'famille'], 20, ['8 œufs', '2 courgettes', '1 oignon', '100 g de fromage râpé', 'Salade verte', 'Huile d’olive, sel, poivre'], 'Faites revenir l’oignon et les courgettes en dés 8 minutes. Battez les œufs, salez, poivrez, versez sur les légumes avec le fromage. Laissez prendre à feu doux 5 à 6 minutes, retournez ou passez sous le gril. Servez avec la salade.'),
   R('pates-tomate', 'Pâtes sauce tomate et basilic', ['rapide', 'veggie', 'glucides', 'famille'], 20, ['400 g de pâtes', '1 boîte de tomates concassées (400 g)', '1 oignon', '2 gousses d’ail', 'Basilic', 'Parmesan', 'Huile d’olive'], 'Faites suer l’oignon et l’ail dans l’huile, ajoutez les tomates et laissez mijoter 10 minutes. Cuisez les pâtes al dente. Mélangez avec la sauce, ajoutez le basilic et le parmesan.'),
@@ -37,42 +37,74 @@ const CATALOGUE = [
   R('gnocchis', 'Gnocchis poêlés, tomates et mozzarella', ['glucides', 'rapide', 'veggie'], 20, ['600 g de gnocchis', '300 g de tomates cerises', '2 boules de mozzarella', 'Basilic', 'Huile d’olive'], 'Faites dorer les gnocchis à la poêle avec l’huile 6 à 8 minutes. Ajoutez les tomates 3 minutes, puis la mozzarella en morceaux et le basilic hors du feu.'),
   R('roti-lentilles', 'Rôti de porc et lentilles', ['mijote', 'famille', 'recup'], 80, ['800 g de rôti de porc', '300 g de lentilles vertes', '2 carottes', '1 oignon', 'Thym, moutarde'], 'Badigeonnez le rôti de moutarde et enfournez 55 minutes à 180 °C. Cuisez les lentilles avec carottes, oignon et thym 25 minutes. Tranchez le rôti et servez sur les lentilles.'),
   R('tajine', 'Tajine de poulet aux abricots secs et semoule', ['mijote', 'glucides', 'famille'], 70, ['4 cuisses de poulet', '100 g d’abricots secs', '2 oignons', '2 carottes', 'Épices (cumin, cannelle, paprika)', '300 g de semoule', 'Amandes'], 'Faites dorer le poulet, ajoutez oignons, carottes et épices, couvrez d’eau à mi-hauteur. Mijotez 40 minutes, ajoutez les abricots 10 minutes. Servez avec la semoule et des amandes.'),
+  // Déjeuners (midi) : plus légers et plus rapides
+  R('salade-quinoa', 'Salade de quinoa, feta et concombre', ['veggie', 'recup', 'rapide'], 20, ['250 g de quinoa', '200 g de feta', '1 concombre', '300 g de tomates', '80 g d’olives', 'Menthe, citron, huile d’olive'], 'Cuisez le quinoa 12 minutes, égouttez et laissez tiédir. Coupez concombre, tomates et feta en dés. Mélangez avec les olives, la menthe, le jus de citron et l’huile.', 'midi'),
+  R('salade-nicoise', 'Salade niçoise', ['poisson', 'recup'], 25, ['2 boîtes de thon au naturel', '4 œufs', '300 g de haricots verts', '400 g de tomates', '400 g de pommes de terre', '80 g d’olives', 'Huile d’olive, vinaigre'], 'Cuisez œufs durs, pommes de terre et haricots verts. Coupez tomates et pommes de terre. Dressez avec le thon émietté, les œufs en quartiers et les olives, assaisonnez d’huile et de vinaigre.', 'midi'),
+  R('salade-pates-poulet', 'Salade de pâtes au poulet', ['glucides', 'rapide', 'famille'], 20, ['300 g de pâtes', '300 g de blanc de poulet cuit', '1 poivron', '1 boîte de maïs', 'Mayonnaise légère ou yaourt', 'Ciboulette'], 'Cuisez et refroidissez les pâtes. Mélangez avec le poulet en dés, le poivron, le maïs, la sauce et la ciboulette.', 'midi'),
+  R('wrap-thon', 'Wraps au thon et crudités', ['poisson', 'rapide', 'famille'], 15, ['4 tortillas', '2 boîtes de thon', '1 avocat ou fromage frais', 'Salade, tomates, concombre', 'Citron'], 'Mélangez le thon avec l’avocat écrasé ou le fromage frais et un filet de citron. Garnissez les tortillas avec la salade et les crudités, roulez serré.', 'midi'),
+  R('sandwich-poulet', 'Sandwich poulet-avocat', ['recup', 'rapide'], 10, ['4 petits pains complets', '300 g de poulet cuit', '2 avocats', 'Tomates, salade', 'Citron, sel, poivre'], 'Écrasez l’avocat avec le citron, tartinez les pains, ajoutez poulet effiloché, tomates et salade.', 'midi'),
+  R('taboule', 'Taboulé frais aux herbes', ['veggie', 'rapide', 'glucides'], 20, ['250 g de semoule', '4 tomates', '1 concombre', '1 bouquet de persil', 'Menthe, citron, huile d’olive'], 'Hydratez la semoule à l’eau chaude 5 minutes, égrenez. Ajoutez tomates et concombre en petits dés, persil et menthe ciselés, citron et huile. Laissez reposer 30 minutes au frais.', 'midi'),
+  R('veloute-potiron', 'Velouté de potiron et croûtons', ['veggie', 'mijote'], 35, ['1 kg de potiron', '1 oignon', '1 l de bouillon', '10 cl de crème', 'Pain pour croûtons', 'Noix de muscade'], 'Faites revenir l’oignon, ajoutez le potiron en cubes et le bouillon, cuisez 25 minutes. Mixez avec la crème et la muscade. Servez avec des croûtons.', 'midi'),
+  R('quiche-lorraine', 'Quiche lorraine', ['famille', 'mijote'], 55, ['1 pâte brisée', '200 g de lardons', '3 œufs', '20 cl de crème', '10 cl de lait', '100 g de gruyère râpé'], 'Foncez un moule avec la pâte. Faites dorer les lardons, répartissez-les. Battez œufs, crème, lait, fromage, versez. Enfournez 35 minutes à 180 °C. Servez avec une salade.', 'midi'),
+  R('quiche-legumes', 'Quiche aux légumes et chèvre', ['veggie', 'famille'], 55, ['1 pâte brisée', '2 courgettes', '1 poivron', '1 bûche de chèvre', '3 œufs', '20 cl de crème'], 'Faites revenir les légumes 8 minutes. Étalez sur la pâte, ajoutez le chèvre en rondelles. Versez œufs battus et crème. Enfournez 35 minutes à 180 °C.', 'midi'),
+  R('salade-lentilles', 'Salade de lentilles et œuf mimosa', ['veggie', 'recup', 'mijote'], 35, ['250 g de lentilles vertes', '2 carottes', '1 échalote', '4 œufs', 'Moutarde, vinaigre, huile', 'Persil'], 'Cuisez les lentilles 25 minutes avec une carotte. Mélangez à la vinaigrette, à l’échalote et à la carotte crue râpée. Ajoutez les œufs durs écrasés et le persil.', 'midi'),
+  R('tortilla', 'Tortilla de pommes de terre', ['veggie', 'famille', 'glucides'], 40, ['600 g de pommes de terre', '1 oignon', '6 œufs', 'Huile d’olive', 'Sel, poivre', 'Salade verte'], 'Faites cuire pommes de terre et oignon en lamelles dans l’huile 15 minutes. Mélangez aux œufs battus. Cuisez 6 minutes à la poêle, retournez avec une assiette, 4 minutes de plus.', 'midi'),
+  R('salade-cesar', 'Salade César au poulet', ['rapide', 'recup', 'famille'], 25, ['400 g de blanc de poulet', '2 cœurs de salade romaine', '50 g de parmesan', 'Croûtons', 'Sauce césar'], 'Poêlez le poulet en lamelles 6 minutes. Dressez la salade avec croûtons et copeaux de parmesan, ajoutez le poulet et la sauce.', 'midi'),
+  R('poke-saumon', 'Poke bowl au saumon', ['poisson', 'recup', 'glucides'], 30, ['300 g de riz à sushi', '300 g de saumon frais', '2 avocats', '1 concombre', 'Edamame ou maïs', 'Sauce soja, citron vert'], 'Cuisez le riz. Coupez le saumon en dés et marinez 10 minutes dans soja et citron. Dressez le riz, le saumon, l’avocat, le concombre et l’edamame.', 'midi'),
+  R('salade-grecque', 'Salade grecque et pain pita', ['veggie', 'rapide'], 15, ['4 tomates', '1 concombre', '200 g de feta', '1 oignon rouge', '80 g d’olives', 'Origan, huile d’olive', '4 pains pita'], 'Coupez les légumes en gros dés, ajoutez olives et feta en cubes, origan et huile. Servez avec les pitas réchauffés.', 'midi'),
+  R('couscous-froid', 'Couscous froid aux légumes', ['veggie', 'glucides', 'rapide'], 25, ['300 g de semoule', '1 poivron', '1 courgette', '1 boîte de pois chiches', 'Raisins secs', 'Citron, huile, cumin'], 'Hydratez la semoule à l’eau chaude, égrenez. Ajoutez légumes crus en dés, pois chiches, raisins, citron, huile et cumin. Servez frais.', 'midi'),
+  R('soupe-minestrone', 'Minestrone et parmesan', ['veggie', 'mijote', 'glucides'], 45, ['2 carottes', '2 courgettes', '1 boîte de haricots blancs', '100 g de petites pâtes', '400 g de tomates concassées', '1 l de bouillon', 'Parmesan, basilic'], 'Faites revenir les légumes en dés, ajoutez tomates et bouillon, cuisez 20 minutes. Ajoutez haricots et pâtes 10 minutes. Servez avec parmesan et basilic.', 'midi'),
+  R('club-sandwich', 'Club sandwich maison', ['rapide', 'famille'], 15, ['12 tranches de pain de mie', '4 tranches de jambon', '4 œufs', 'Tomates, salade', 'Fromage frais ou mayonnaise'], 'Cuisez les œufs au plat ou durs. Toastez le pain, tartinez, empilez jambon, œuf, tomate et salade sur 3 étages. Coupez en triangles.', 'midi'),
+  R('riz-thon', 'Salade de riz, thon et maïs', ['poisson', 'rapide', 'glucides'], 20, ['300 g de riz', '2 boîtes de thon', '1 boîte de maïs', '3 tomates', 'Olives', 'Vinaigrette'], 'Cuisez et refroidissez le riz. Mélangez avec thon, maïs, tomates, olives et vinaigrette.', 'midi'),
+  R('pita-poulet', 'Pita poulet, yaourt et concombre', ['rapide', 'recup'], 20, ['4 pains pita', '400 g de blanc de poulet', '2 yaourts nature', '1 concombre', 'Ail, citron, paprika'], 'Poêlez le poulet épicé au paprika. Mélangez yaourt, concombre râpé, ail et citron. Garnissez les pitas de poulet et de sauce.', 'midi'),
 ];
 const CAT_PAR_ID = Object.fromEntries(CATALOGUE.map(r => [r.id, r]));
+['omelette', 'croque', 'pates-tomate', 'pates-thon', 'soupe-lentilles', 'oeufs-avocat', 'bowl-poulet', 'gnocchis', 'riz-cantonais', 'quesadillas', 'galettes'].forEach(id => { CAT_PAR_ID[id].m = 'tous'; });
 
 // Générateur pseudo-aléatoire déterministe
 const graine = s => { let h = 7; for (const c of s) h = (Math.imul(31, h) + c.charCodeAt(0)) | 0; return h; };
 const alea = seed => () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-const BASE_JOURS = ['rapide', 'veggie', 'famille', 'poisson', 'famille', 'glucides', 'mijote'];
+const BASE_SOIR = ['rapide', 'veggie', 'famille', 'poisson', 'famille', 'glucides', 'mijote'];
+const BASE_MIDI = ['rapide', 'veggie', 'rapide', 'poisson', 'rapide', 'famille', 'mijote'];
 const TAG_NOM = { rapide: 'Rapide', veggie: 'Végétarien', famille: 'Famille', poisson: 'Poisson', glucides: 'Énergie', mijote: 'Mijoté', recup: 'Récupération' };
+const MOMENTS = [['midi', 'Midi'], ['soir', 'Soir']];
 
-// Besoins sportifs d'un jour : glucides la veille d'une séance longue, protéines un jour de renforcement
-function besoinSport(date) {
+// Besoins sportifs : glucides la veille d'une séance longue (dîner), protéines après un renforcement (dîner) ou une séance longue (déjeuner)
+function besoinSport(date, moment) {
   if (typeof membresSport !== 'function') return null;
+  if (moment === 'midi') {
+    for (const m of membresSport()) { const c = contexteJour(m.id, date); if (c.type === 'long' && c.prevue) return { tag: 'recup', raison: `Après la séance longue (${m.nom}) : repas riche en protéines` }; }
+    return null;
+  }
   const demain = iso(ajouteJours(parse(date), 1));
   for (const m of membresSport()) {
-    if (contexteJour(m.id, demain).type === 'long' && contexteJour(m.id, demain).prevue) return { tag: 'glucides', raison: `Veille de séance longue (${m.nom}) : repas riche en glucides` };
+    const c = contexteJour(m.id, demain);
+    if (c.type === 'long' && c.prevue) return { tag: 'glucides', raison: `Veille de séance longue (${m.nom}) : repas riche en glucides` };
   }
   for (const m of membresSport()) {
-    const l = prevuesLe(m.id, date);
-    if (l.some(x => x.type === 'muscu')) return { tag: 'recup', raison: `Après le renforcement (${m.nom}) : repas riche en protéines` };
+    if (prevuesLe(m.id, date).some(x => x.type === 'muscu')) return { tag: 'recup', raison: `Après le renforcement (${m.nom}) : repas riche en protéines` };
   }
   return null;
 }
+const cleSlot = (lun, i, m = 'soir') => (m === 'soir' ? `${lun}:${i}` : `${lun}:${i}:${m}`);
+// Menu de la semaine : 14 repas (midi et soir), tous différents, sans les plats refusés ni ceux des deux semaines précédentes
 function menuSemaine(lun, prof = 2) {
-  const prec1 = new Set(), prec2 = new Set();
+  const prec1 = new Set(), prec2 = new Set(), refus = new Set((etat.menuRefus || []).filter(x => Math.abs(diffJours(x.date, lun)) <= 56).map(x => x.id));
   if (prof > 0) for (let k = 1; k <= 2; k++) menuSemaine(iso(ajouteJours(parse(lun), -7 * k)), prof - 1).forEach(x => (k === 1 ? prec1 : prec2).add(x.r.id));
   const hasard = alea(graine(lun)), utilises = new Set(), out = [];
   for (let i = 0; i < 7; i++) {
-    const date = iso(ajouteJours(parse(lun), i)), sp = besoinSport(date), tag = sp ? sp.tag : BASE_JOURS[i];
-    const filtres = [r => !utilises.has(r.id) && !prec1.has(r.id) && !prec2.has(r.id), r => !utilises.has(r.id) && !prec1.has(r.id), r => !utilises.has(r.id)];
-    let c = [];
-    for (const f of filtres) { c = CATALOGUE.filter(r => r.tags.includes(tag) && f(r)); if (c.length) break; }
-    if (!c.length) c = CATALOGUE.filter(filtres[2]);
-    const decal = (etat.menuAlt || {})[`${lun}:${i}`] || 0;
-    const r = c[(Math.floor(hasard() * c.length) + decal) % c.length];
-    utilises.add(r.id);
-    out.push({ date, r, tag, raison: sp ? sp.raison : '' });
+    for (const [moment] of MOMENTS) {
+      const date = iso(ajouteJours(parse(lun), i)), sp = besoinSport(date, moment), tag = sp ? sp.tag : (moment === 'midi' ? BASE_MIDI : BASE_SOIR)[i];
+      const ok = r => r.m === 'tous' || r.m === moment;
+      const filtres = [r => !utilises.has(r.id) && !refus.has(r.id) && !prec1.has(r.id) && !prec2.has(r.id), r => !utilises.has(r.id) && !refus.has(r.id) && !prec1.has(r.id), r => !utilises.has(r.id) && !refus.has(r.id), r => !utilises.has(r.id)];
+      let c = [];
+      for (const f of filtres) { c = CATALOGUE.filter(r => ok(r) && r.tags.includes(tag) && f(r)); if (c.length) break; }
+      if (!c.length) for (const f of filtres) { c = CATALOGUE.filter(r => ok(r) && f(r)); if (c.length) break; }
+      const decal = (etat.menuAlt || {})[cleSlot(lun, i, moment)] || 0;
+      const r = c[(Math.floor(hasard() * c.length) + decal) % c.length];
+      utilises.add(r.id);
+      out.push({ date, i, moment, r, tag, raison: sp ? sp.raison : '' });
+    }
   }
   return out;
 }
@@ -84,70 +116,88 @@ function enregistrerRecette(r) {
 }
 
 // ---------- Validation : un repas validé est planifié et ses ingrédients passent dans la liste de courses ----------
-const idMenu = (lun, i) => `${lun}:${i}`;
-const valideDe = (lun, i) => (etat.menuVal || []).find(x => x.id === idMenu(lun, i));
-function validerRepas(lun, i, r, date) {
-  if (valideDe(lun, i)) return 0;
+const valideDe = (lun, i, m = 'soir') => (etat.menuVal || []).find(x => x.id === cleSlot(lun, i, m));
+function validerRepas(lun, i, m, r, date) {
+  if (valideDe(lun, i, m)) return 0;
   const ajouts = r.ingredients.map(ing => { const d = ajouterCourseDetail(ing, 1, r.nom); return { id: d.id, nouveau: d.etat === 'new' }; });
   enregistrerRecette(r);
-  etat.repas[date] = { ...etat.repas[date], soir: r.nom };
-  (etat.menuVal = etat.menuVal || []).push({ id: idMenu(lun, i), rid: r.id, date, ajouts });
+  etat.repas[date] = { ...etat.repas[date], [m]: r.nom };
+  (etat.menuVal = etat.menuVal || []).push({ id: cleSlot(lun, i, m), rid: r.id, date, m, ajouts });
   return r.ingredients.length;
 }
-function annulerRepas(lun, i) {
-  const v = valideDe(lun, i);
+function annulerRepas(lun, i, m = 'soir') {
+  const v = valideDe(lun, i, m);
   if (!v) return;
   v.ajouts.forEach(a => {
     const c = etat.courses.find(x => x.id === a.id);
     if (!c || c.fait) return;
     if (a.nouveau) etat.courses = etat.courses.filter(x => x.id !== a.id); else if ((c.qte || 1) > 1) c.qte--;
   });
-  const r = CAT_PAR_ID[v.rid];
-  if (r && etat.repas[v.date] && etat.repas[v.date].soir === r.nom) etat.repas[v.date] = { ...etat.repas[v.date], soir: '' };
+  const r = CAT_PAR_ID[v.rid], mm = v.m || 'soir';
+  if (r && etat.repas[v.date] && etat.repas[v.date][mm] === r.nom) etat.repas[v.date] = { ...etat.repas[v.date], [mm]: '' };
   etat.menuVal = etat.menuVal.filter(x => x !== v);
 }
-// Annulation globale : la fonction restaure l'état d'avant l'action
+// Invalider : annule la validation éventuelle, écarte la recette pour plusieurs semaines et propose autre chose
+function invaliderRepas(lun, i, m, rid) {
+  annulerRepas(lun, i, m);
+  (etat.menuRefus = etat.menuRefus || []).push({ id: rid, date: lun });
+  etat.menuRefus = etat.menuRefus.filter(x => diffJours(x.date, aujourdhui()) > -120).slice(-60);
+  etat.menuAlt = etat.menuAlt || {};
+  const k = cleSlot(lun, i, m);
+  etat.menuAlt[k] = (etat.menuAlt[k] || 0) + 1;
+}
 const avecAnnuler = (msg, avant) => info(msg, { label: 'Annuler', fn: () => { etat = { ...defaut(), ...JSON.parse(avant) }; sauver(); rendre(); } });
 
 // ---------- Interface ----------
+function repasActuel(lun, x) { const v = valideDe(lun, x.i, x.moment); return { v, r: v ? (CAT_PAR_ID[v.rid] || x.r) : x.r }; }
 function ideesRepas() {
-  const lun = iso(semaineAff), menu = menuSemaine(lun), nbVal = menu.filter((x, i) => valideDe(lun, i)).length;
-  return `<section class="carte"><div class="carte-tete"><h2>Idées de la semaine</h2><span class="pill ${nbVal === 7 ? 'ok' : 'pri'}">${nbVal}/7 validés</span></div>
-    <p class="mut">Sept dîners qui changent chaque semaine. Touchez un repas pour voir la recette ; « Valider » le planifie et envoie ses ingrédients dans la liste de courses.</p>
-    <ul class="liste">${menu.map((x, i) => {
-      const v = valideDe(lun, i), r = v ? (CAT_PAR_ID[v.rid] || x.r) : x.r;
-      return `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="idee" data-id="${r.id}" data-date="${x.date}" data-i="${i}" data-lun="${lun}">
-        <span class="heure" style="flex-basis:40px">${JOURS[i]}</span>
+  const lun = iso(semaineAff), menu = menuSemaine(lun), nbVal = menu.filter(x => valideDe(lun, x.i, x.moment)).length;
+  return `<section class="carte"><div class="carte-tete"><h2>Idées de la semaine</h2><span class="pill ${nbVal === 14 ? 'ok' : 'pri'}">${nbVal}/14 validés</span></div>
+    <p class="mut">Deux repas par jour, différents chaque semaine. Touchez un repas pour voir la recette. « Valider » le planifie et envoie ses ingrédients dans les courses ; « Autre » invalide la recette et en propose une nouvelle.</p>
+    ${JOURS.map((j, i) => `<h3>${fmtLong(iso(ajouteJours(parse(lun), i)))}</h3><ul class="liste">${menu.filter(x => x.i === i).map(x => {
+      const { v, r } = repasActuel(lun, x), lib = x.moment === 'midi' ? 'Midi' : 'Soir';
+      return `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="idee" data-id="${r.id}" data-date="${x.date}" data-i="${i}" data-m="${x.moment}" data-lun="${lun}">
+        <span class="heure" style="flex-basis:44px;font-size:.8rem">${lib}</span>
         <span class="rang-txt"><b>${esc(r.nom)}</b><small>${r.temps} min · ${r.tags.slice(0, 2).map(t => TAG_NOM[t] || t).join(', ')}${x.raison ? ' · ' + esc(x.raison) : ''}</small></span></button>
-        ${v ? `<button class="pill ok" data-act="idee-annuler" data-lun="${lun}" data-i="${i}" aria-label="Annuler la validation">✓ Validé</button>` : `<button class="btn" style="min-height:38px;padding:0 14px" data-act="idee-valider" data-lun="${lun}" data-i="${i}">Valider</button>`}</li>`; }).join('')}</ul>
-    <div class="rangee"><button class="btn" data-act="idees-valider"${nbVal === 7 ? ' disabled' : ''}>Valider toute la semaine</button>${nbVal ? '<button class="btn sec" data-act="idees-annuler">Annuler les validations</button>' : ''}</div></section>`;
+        ${v ? `<button class="pill ok" data-act="idee-annuler" data-lun="${lun}" data-i="${i}" data-m="${x.moment}" aria-label="Annuler la validation">✓ Validé</button>` : `<button class="btn" style="min-height:38px;padding:0 12px" data-act="idee-valider" data-lun="${lun}" data-i="${i}" data-m="${x.moment}">Valider</button>`}
+        <button class="btn sec" style="min-height:38px;padding:0 10px" data-act="idee-refuser" data-lun="${lun}" data-i="${i}" data-m="${x.moment}" data-id="${r.id}" aria-label="Invalider ${esc(r.nom)} et proposer autre chose">Autre</button></li>`; }).join('')}</ul>`).join('')}
+    <div class="rangee"><button class="btn" data-act="idees-valider"${nbVal === 14 ? ' disabled' : ''}>Valider toute la semaine</button>${nbVal ? '<button class="btn sec" data-act="idees-annuler">Annuler les validations</button>' : ''}</div></section>`;
 }
 SHEETS.idee = d => {
-  const lun = d.lun, i = Number(d.i), v = lun != null && d.i != null ? valideDe(lun, i) : null;
+  const lun = d.lun, i = Number(d.i), m = d.m || 'soir', v = lun != null && d.i != null ? valideDe(lun, i, m) : null;
   const r = CAT_PAR_ID[d.id];
   if (!r) return { titre: 'Recette', corps: '<p>Recette introuvable.</p>' };
   const h = t => `<h3 class="mut" style="margin:0;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em">${t}</h3>`;
-  return { titre: r.nom, corps: `<p class="mut">${r.portions} portions · ${r.temps} min${d.date ? ' · ' + fmtLong(d.date) : ''}</p>
+  const a = `data-lun="${lun}" data-i="${i}" data-m="${m}"`;
+  return { titre: r.nom, corps: `<p class="mut">${r.portions} portions · ${r.temps} min${d.date ? ' · ' + (m === 'midi' ? 'midi' : 'soir') + ' · ' + fmtLong(d.date) : ''}</p>
     ${h('Ingrédients')}<ul class="liste">${r.ingredients.map(x => `<li class="rang" style="min-height:38px"><span class="rang-txt">${esc(x)}</span></li>`).join('')}</ul>
     ${h('Préparation')}<p style="color:var(--ink)">${esc(r.etapes)}</p>
     <small>Quantités pour 4 personnes : ajustez selon l’appétit. Pour un bébé, adaptez textures et aliments à son âge, avec l’avis du pédiatre.</small>
-    ${d.date ? (v ? `<button class="btn sec plein" data-act="idee-annuler" data-lun="${lun}" data-i="${i}">Annuler la validation (retire les ingrédients ajoutés)</button>`
-      : `<button class="btn plein" data-act="idee-valider" data-lun="${lun}" data-i="${i}">Valider : planifier et ajouter les ingrédients aux courses</button>`) : ''}
-    <div class="rangee"><button class="btn sec" data-act="idee-ouvrir" data-id="${r.id}">Ouvrir dans mes recettes</button>${d.date && !v ? `<button class="btn sec" data-act="idee-alt" data-lun="${lun}" data-i="${i}">Proposer autre chose</button>` : ''}</div>` };
+    ${d.date ? (v ? `<button class="btn sec plein" data-act="idee-annuler" ${a}>Annuler la validation (retire les ingrédients ajoutés)</button>`
+      : `<button class="btn plein" data-act="idee-valider" ${a}>Valider : planifier et ajouter les ingrédients aux courses</button>`) : ''}
+    <div class="rangee"><button class="btn sec" data-act="idee-ouvrir" data-id="${r.id}">Ouvrir dans mes recettes</button>${d.date ? `<button class="btn danger" data-act="idee-refuser" ${a} data-id="${r.id}">Invalider et proposer autre chose</button>` : ''}</div>` };
 };
+const slotDe = el => ({ lun: el.dataset.lun, i: Number(el.dataset.i), m: el.dataset.m || 'soir' });
+const itemMenu = ({ lun, i, m }) => menuSemaine(lun).find(x => x.i === i && x.moment === m);
 ACTIONS['idee-valider'] = el => {
-  const lun = el.dataset.lun, i = Number(el.dataset.i), x = menuSemaine(lun)[i], avant = JSON.stringify(etat);
-  const n = validerRepas(lun, i, x.r, x.date);
+  const s = slotDe(el), x = itemMenu(s), avant = JSON.stringify(etat);
+  const n = validerRepas(s.lun, s.i, s.m, x.r, x.date);
   fermerFeuille();
   avecAnnuler(`« ${x.r.nom} » validé : ${n} ingrédient${pl(n)} ajouté${pl(n)} aux courses.`, avant);
 };
-ACTIONS['idee-annuler'] = el => { annulerRepas(el.dataset.lun, Number(el.dataset.i)); fermerFeuille(); info('Validation annulée, ingrédients retirés des courses.'); };
+ACTIONS['idee-annuler'] = el => { const s = slotDe(el); annulerRepas(s.lun, s.i, s.m); fermerFeuille(); info('Validation annulée, ingrédients retirés des courses.'); };
+ACTIONS['idee-refuser'] = el => {
+  const s = slotDe(el), avant = JSON.stringify(etat);
+  invaliderRepas(s.lun, s.i, s.m, el.dataset.id);
+  fermerFeuille();
+  const x = itemMenu(s);
+  avecAnnuler(`Recette invalidée. Nouvelle proposition : « ${x.r.nom} ».`, avant);
+};
 ACTIONS['idees-valider'] = () => {
   const lun = iso(semaineAff), menu = menuSemaine(lun), avant = JSON.stringify(etat);
   let n = 0, k = 0;
-  menu.forEach((x, i) => { if (!valideDe(lun, i)) { n += validerRepas(lun, i, x.r, x.date); k++; } });
+  menu.forEach(x => { if (!valideDe(lun, x.i, x.moment)) { n += validerRepas(lun, x.i, x.moment, x.r, x.date); k++; } });
   avecAnnuler(`${k} repas validé${pl(k)} : ${n} ingrédient${pl(n)} ajouté${pl(n)} aux courses.`, avant);
 };
-ACTIONS['idees-annuler'] = () => { const lun = iso(semaineAff); for (let i = 0; i < 7; i++) annulerRepas(lun, i); info('Validations annulées, ingrédients retirés des courses.'); };
+ACTIONS['idees-annuler'] = () => { const lun = iso(semaineAff); for (let i = 0; i < 7; i++) MOMENTS.forEach(([m]) => annulerRepas(lun, i, m)); info('Validations annulées, ingrédients retirés des courses.'); };
 ACTIONS['idee-ouvrir'] = el => { const r = enregistrerRecette(CAT_PAR_ID[el.dataset.id]); sauver(); aller('recettes'); ouvrirFeuille('recette', { id: r.id }); };
-ACTIONS['idee-alt'] = el => { etat.menuAlt = etat.menuAlt || {}; const k = `${el.dataset.lun}:${el.dataset.i}`; etat.menuAlt[k] = (etat.menuAlt[k] || 0) + 1; fermerFeuille(); info('Nouvelle idée proposée.'); };
