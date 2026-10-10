@@ -342,7 +342,7 @@ function bSynthese() {
     <section class="fin-tuile"><span class="t-lbl">Répartition des actifs</span>
       <div class="rep"><div class="rep-leg"><span class="t-bas">Actif le plus détenu</span><b class="t-nom">${esc(trie[0].ticker)} · ${pc(trie[0].poids)}</b></div>${barresV(barres, 110)}</div></section>
     ${cons ? `<button class="fin-tuile tuile-btn" data-act="btab" data-v="conseils"><span class="t-lbl">Conseil</span><span class="t-bas clamp">${esc(cons[1])}</span></button>` : ''}
-    ${vieux ? `<button class="fin-tuile tuile-btn" data-act="ouvrir" data-sheet="cours"><span class="t-lbl">Cours à mettre à jour</span><span class="t-ligne"><b class="t-nom">${vieux} ligne${pl(vieux)}</b></span></button>` : ''}`;
+    ${tuileCours(vieux)}`;
 }
 document.addEventListener('change', e => { if (e.target.dataset && e.target.dataset.benv !== undefined) { bEnv = e.target.value; rendre(); } });
 
@@ -387,6 +387,7 @@ function bOutils(S) {
   const fraisAn = somme(ps, p => p.val * (p.frais || 0) / 100);
   const imposable = somme(ps.filter(p => ENV_IMPOSABLES.includes(p.enveloppe) && p.pl > 0), p => p.pl);
   return `
+    ${reglageCours()}
     <section class="carte"><h2>Rééquilibrage</h2>${champ('versement', 'Versement prévu (€)', c.versement, '10')}${rebalancement(S)}</section>
     <section class="carte"><h2>Dividendes, frais, fiscalité</h2>
       <div class="kv"><span>Dividendes annuels estimés</span><b>${eur(revenu)}</b></div>
@@ -443,6 +444,8 @@ SHEETS.ligne = d => {
     <form class="formulaire" data-form="pos-edit"><input type="hidden" name="id" value="${p.id}">
       <div class="duo">${fld(`Cours actuel (${p.devise === 'USD' ? '$' : '€'})`, `<input type="number" name="cours" step="any" min="0" value="${r4(p.cours)}" inputmode="decimal" required>`)}${fld('Cible (%)', `<input type="number" name="cible" step="1" min="0" max="100" value="${p.cible || ''}" inputmode="decimal">`)}</div>
       <div class="duo">${fld('Dividende annuel / titre (€)', `<input type="number" name="div" step="any" min="0" value="${p.div || ''}" inputmode="decimal">`)}${fld('Frais annuels (%)', `<input type="number" name="frais" step="0.01" min="0" value="${p.frais || ''}" inputmode="decimal">`)}</div>
+      ${fld('Symbole Yahoo Finance (cours automatiques)', `<input name="sym" autocomplete="off" value="${esc(p.sym || '')}" placeholder="${esc(symYahoo(p))}">`)}
+      <small>${p.nomY ? 'Dernier cours : ' + esc(p.nomY) + '. ' : ''}Laissez vide pour utiliser « ${esc(symYahoo(p))} ». Bourses européennes : ajoutez le suffixe (RMS.PA pour Paris).</small>
       <button class="btn plein">Enregistrer</button></form>
     <div class="rangee"><button class="btn sec" data-act="pf-achat" data-id="${p.id}">Renforcer</button><button class="btn sec" data-act="pf-vente" data-id="${p.id}">Vendre</button><button class="btn danger" data-act="pf-del" data-id="${p.id}">Supprimer</button></div>` };
 };
@@ -488,6 +491,7 @@ FORMS['pos-edit'] = f => {
   if (!p) return;
   const cours = Number(f.cours.value) || 0;
   if (cours !== p.cours) p.maj = aujourdhui();
+  p.sym = f.sym ? f.sym.value.trim().toUpperCase() : p.sym;
   Object.assign(p, { cours, cible: Number(f.cible.value) || 0, div: Number(f.div.value) || 0, frais: Number(f.frais.value) || 0 });
 };
 FORMS.cours = f => etat.pf.forEach(p => {
