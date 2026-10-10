@@ -250,6 +250,7 @@ const VUES = {
       <div class="carte-tete"><button class="icone" data-act="semaine" data-n="-1" aria-label="Semaine précédente">‹</button>
         <b>${fmtDate(iso(semaineAff))} → ${fmtDate(iso(jours[6]))}</b>
         <button class="icone" data-act="semaine" data-n="1" aria-label="Semaine suivante">›</button></div>
+      ${typeof ideesRepas === 'function' ? ideesRepas() : ''}
       ${jours.map(d => { const k = iso(d), r = etat.repas[k] || {}; return `<div class="jr${k === auj ? ' auj' : ''}"><h3>${fmtLong(k)}${k === auj ? ' · aujourd’hui' : ''}</h3>
         ${fld('Midi', `<input data-repas="${k}" data-slot="midi" list="dlRecettes" value="${esc(r.midi)}" placeholder="—">`)}
         ${fld('Soir', `<input data-repas="${k}" data-slot="soir" list="dlRecettes" value="${esc(r.soir)}" placeholder="—">`)}</div>`; }).join('')}
@@ -410,7 +411,7 @@ function feuille(titre, corps) {
 const fermerFeuille = () => document.querySelectorAll('.modal').forEach(m => m.remove());
 
 // ---------- Actions ----------
-const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del', 'pret-del', 'recette-del', 'carnet-del', 'cadeau-del', 'voyage-del', 'voy-item-del', 'voy-etape-del', 'voy-dep-del', 'seance-del', 'plan-item-del', 'prog-del']);
+const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del', 'pret-del', 'recette-del', 'carnet-del', 'cadeau-del', 'voyage-del', 'voy-item-del', 'voy-etape-del', 'voy-dep-del', 'seance-del', 'plan-item-del', 'prog-del', 'prog-del-voy']);
 const ACTIONS = {
   'ouvrir': el => { ouvrirFeuille(el.dataset.sheet, el.dataset); return 'vue'; },
   'filtre': el => { filtreT = el.dataset.v; return 'vue'; },

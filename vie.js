@@ -112,6 +112,8 @@ function carnetAlertes() {
 // ---------- Voyages ----------
 let voySel = '';
 const VALISE = ['Pièces d’identité', 'Billets et réservations', 'Assurance voyage', 'Carte bancaire et espèces', 'Chargeurs et batteries', 'Adaptateur de prise', 'Médicaments et trousse de soins', 'Trousse de toilette', 'Vêtements', 'Maillots de bain', 'Instructions et clés pour la maison'];
+const VOYAGEURS = [['solo', 'Seul'], ['couple', 'En couple'], ['famille', 'En famille']];
+const RYTHMES = [['detente', 'Détente'], ['equilibre', 'Équilibré'], ['actif', 'Actif']];
 const voyageProchain = () => etat.voyages.filter(v => v.fin >= aujourdhui()).sort((a, b) => a.debut.localeCompare(b.debut))[0];
 VUES.voyages = function () {
   if (!etat.voyages.length) return `<section class="carte"><h2>Vos voyages</h2><p class="mut">Préparez un séjour : dates, checklist de valise, planning par jour et budget avec les dépenses.</p><button class="btn" data-act="ouvrir" data-sheet="voyage">Planifier un voyage</button></section>`;
@@ -124,6 +126,7 @@ VUES.voyages = function () {
   return `<div class="chips" role="group" aria-label="Choisir un voyage">${tri.map(x => `<button data-act="voy-sel" data-id="${x.id}" aria-pressed="${x.id === v.id}">${esc(x.nom)}</button>`).join('')}</div>
     <section class="hero"><p class="hero-lbl">${esc(v.destination || 'Destination à préciser')}</p><p class="hero-val">${fini ? 'Terminé' : jours > 0 ? `J-${jours}` : 'En cours'}</p>
       <p class="hero-sub">${fmtDate(v.debut)} → ${fmtDate(v.fin)} · ${nuits} nuit${pl(nuits)}</p></section>
+    ${carteProgramme(v)}
     <section class="carte"><div class="carte-tete"><h2>Checklist</h2><span class="pill pri">${faits}/${v.checklist.length}</span></div>
       <form class="ajout" data-form="voy-item"><input name="txt" placeholder="Ajouter un point" aria-label="Nouveau point" required autocomplete="off"><button class="btn" aria-label="Ajouter">${ico('plus', 20)}</button></form>
       <ul class="liste">${v.checklist.map(c => `<li class="rang ${c.fait ? 'fait' : ''}"><label class="rang-main"><input type="checkbox" class="coche" data-act="voy-coche" data-id="${c.id}"${c.fait ? ' checked' : ''}><span class="rang-txt">${esc(c.txt)}</span></label>
@@ -145,7 +148,9 @@ SHEETS.voyage = d => {
     ${fld('Nom', `<input name="nom" required autocomplete="off" value="${esc(val(v, 'nom'))}" placeholder="Vacances d’été">`)}
     ${fld('Destination', `<input name="destination" autocomplete="off" value="${esc(val(v, 'destination'))}">`)}
     <div class="duo">${fld('Départ', `<input type="date" name="debut" required value="${esc(val(v, 'debut'))}">`)}${fld('Retour', `<input type="date" name="fin" required value="${esc(val(v, 'fin'))}">`)}</div>
+    <div class="duo">${fld('Voyageurs', `<select name="voyageurs">${optSel(VOYAGEURS, val(v, 'voyageurs', etat.membres.length >= 3 ? 'famille' : 'couple'))}</select>`)}${fld('Rythme', `<select name="rythme">${optSel(RYTHMES, val(v, 'rythme', 'equilibre'))}</select>`)}</div>
     ${fld('Budget (€, facultatif)', `<input type="number" name="budget" min="0" step="50" inputmode="decimal" value="${val(v, 'budget', '') || ''}">`)}
+    <small>Avec une destination et des dates, l’application propose un programme d’activités adapté aux voyageurs.</small>
     <button class="btn plein">Enregistrer</button></form>` };
 };
 SHEETS['voy-etape'] = () => ({ titre: 'Nouvelle étape', corps: `<form class="formulaire" data-form="voy-etape">
@@ -156,13 +161,99 @@ SHEETS['voy-dep'] = () => ({ titre: 'Nouvelle dépense', corps: `<form class="fo
   <button class="btn plein">Ajouter</button></form>` });
 const voyAct = () => etat.voyages.find(x => x.id === voySel);
 FORMS.voyage = f => {
-  const o = { nom: f.nom.value.trim(), destination: f.destination.value.trim(), debut: f.debut.value, fin: f.fin.value < f.debut.value ? f.debut.value : f.fin.value, budget: Number(f.budget.value) || 0 };
+  const o = { nom: f.nom.value.trim(), destination: f.destination.value.trim(), debut: f.debut.value, fin: f.fin.value < f.debut.value ? f.debut.value : f.fin.value, budget: Number(f.budget.value) || 0, voyageurs: f.voyageurs.value, rythme: f.rythme.value };
   const i = etat.voyages.findIndex(x => x.id === f.id.value);
-  if (i >= 0) Object.assign(etat.voyages[i], o); else { const v = { id: uid(), checklist: [], depenses: [], etapes: [], ...o }; etat.voyages.push(v); voySel = v.id; }
+  let v;
+  if (i >= 0) {
+    v = etat.voyages[i];
+    const change = v.destination !== o.destination || v.debut !== o.debut || v.fin !== o.fin || v.voyageurs !== o.voyageurs || v.rythme !== o.rythme;
+    Object.assign(v, o);
+    if (change) v.programme = null;
+  } else { v = { id: uid(), checklist: [], depenses: [], etapes: [], programme: null, ...o }; etat.voyages.push(v); voySel = v.id; }
+  if (v.destination && !v.programme) setTimeout(() => lancerProg(v.id), 40);
 };
 FORMS['voy-item'] = f => { const v = voyAct(); if (v) v.checklist.push({ id: uid(), txt: f.txt.value.trim(), fait: false }); };
 FORMS['voy-etape'] = f => { const v = voyAct(); if (v) v.etapes.push({ id: uid(), date: f.date.value, txt: f.txt.value.trim() }); };
 FORMS['voy-dep'] = f => { const v = voyAct(); if (v) v.depenses.push({ id: uid(), txt: f.txt.value.trim(), montant: Number(f.montant.value) || 0 }); };
+// ---------- Programme proposé (Claude via la capacité « sample », sinon modèle générique) ----------
+const progEnCours = {};
+const nbJoursVoyage = vy => Math.max(1, Math.min(21, diffJours(vy.debut, vy.fin) + 1));
+function compositionVoyage(vy) {
+  if (vy.voyageurs === 'solo') return 'une personne seule';
+  if (vy.voyageurs === 'couple') return 'un couple (deux adultes, sans enfants)';
+  const ad = etat.membres.filter(m => categorie(m) === 'adulte').length || 2;
+  const enf = etat.membres.filter(m => categorie(m) !== 'adulte').map(m => {
+    if (categorie(m) === 'bebe') { const d = m.naissance ? parse(m.naissance) : null, n = new Date(); return d ? `un bébé de ${Math.max(1, (n.getFullYear() - d.getFullYear()) * 12 + n.getMonth() - d.getMonth())} mois` : 'un bébé'; }
+    const a = ageDe(m); return a != null ? `un enfant de ${a} ans` : 'un enfant';
+  });
+  return `une famille : ${ad} adultes${enf.length ? ', ' + enf.join(', ') : ''}`;
+}
+function promptProgramme(vy) {
+  const n = nbJoursVoyage(vy), prof = { solo: 'seul : rythme libre, visites, rencontres, restaurants au comptoir, sécurité du soir', couple: 'en couple : balades, points de vue, bons restaurants, moments à deux, un peu de romantisme', famille: 'en famille avec des jeunes enfants : rythme doux, pauses et siestes, activités ludiques, accès poussette si bébé, repas tôt, peu de longs trajets' }[vy.voyageurs || 'famille'];
+  const ry = { detente: 'détendu, peu d’activités par jour', equilibre: 'équilibré', actif: 'actif, beaucoup de visites' }[vy.rythme || 'equilibre'];
+  return `Tu es un guide de voyage. Propose un programme de ${n} jour${n > 1 ? 's' : ''} à ${vy.destination} pour ${compositionVoyage(vy)}. Profil : ${prof}. Rythme : ${ry}.
+Réponds uniquement avec un objet JSON de la forme : {"jours":[{"jour":1,"titre":"Arrivée et quartier historique","matin":"...","apresmidi":"...","soir":"..."}],"conseils":["..."]}.
+Règles : exactement ${n} entrées dans "jours" ; lieux et activités réels et connus ; regroupe par quartier pour limiter les trajets ; jour 1 allégé (arrivée) et dernier jour adapté au départ ; au plus 25 mots par créneau ; aucune information de prix précise ; 4 à 6 conseils pratiques (saison, transports, réservations à anticiper, vérifier les horaires et jours de fermeture). Écris en français.`;
+}
+async function lancerProg(id) {
+  const vy = etat.voyages.find(x => x.id === id);
+  if (!vy || !vy.destination) return;
+  let sample = null;
+  try { sample = window.claude && window.claude.use ? await window.claude.use('sample') : null; } catch { sample = null; }
+  if (!sample) { progEnCours[id] = { etat: 'erreur', code: 'indisponible' }; rendreSiPossible(); return; }
+  const ctl = new AbortController();
+  progEnCours[id] = { etat: 'cours', ctl };
+  rendreSiPossible();
+  try {
+    const d = await sample.json(promptProgramme(vy), { signal: ctl.signal });
+    const t = (x, n) => String(x == null ? '' : x).slice(0, n);
+    const jours = (Array.isArray(d && d.jours) ? d.jours : []).slice(0, 21).map((j, i) => ({ jour: Math.max(1, Number(j.jour) || i + 1), titre: t(j.titre, 120), matin: t(j.matin, 300), apresmidi: t(j.apresmidi, 300), soir: t(j.soir, 300) }));
+    if (!jours.length) throw { code: 'format' };
+    const w = etat.voyages.find(x => x.id === id);
+    if (w) { w.programme = { source: 'claude', date: aujourdhui(), jours, conseils: (Array.isArray(d.conseils) ? d.conseils : []).slice(0, 8).map(c => t(c, 300)) }; sauver(); }
+    delete progEnCours[id];
+  } catch (e) { progEnCours[id] = e && e.code === 'cancelled' ? null : { etat: 'erreur', code: (e && e.code) || 'inconnue' }; if (!progEnCours[id]) delete progEnCours[id]; }
+  rendreSiPossible();
+}
+function progGenerique(vy) {
+  const n = nbJoursVoyage(vy), G = {
+    solo: [['Petit-déjeuner dans un café local puis balade dans le centre', 'Visite d’un musée ou d’un site majeur', 'Dîner dans un restaurant populaire, promenade du soir'], ['Marché ou quartier animé', 'Point de vue et photos', 'Rencontres : activité en groupe ou bar local']],
+    couple: [['Petit-déjeuner tranquille et balade dans le quartier historique', 'Visite d’un musée ou d’un site emblématique', 'Dîner dans un bon restaurant local, balade au coucher du soleil'], ['Marché, café et boutiques', 'Point de vue ou jardin pour la fin d’après-midi', 'Soirée détente : bar à vue ou concert']],
+    famille: [['Parc, jardin ou plage pour que les enfants se dépensent', 'Après la sieste : visite courte et ludique (aquarium, zoo, musée interactif)', 'Dîner tôt près du logement'], ['Balade douce en poussette dans un quartier agréable', 'Activité adaptée aux enfants (manège, jeux, petite excursion)', 'Dîner simple et coucher tôt']],
+  }[vy.voyageurs || 'famille'];
+  const jours = Array.from({ length: n }, (_, i) => {
+    const g = G[i % G.length];
+    return { jour: i + 1, titre: i === 0 ? 'Arrivée et premiers pas' : i === n - 1 && n > 1 ? 'Dernier jour et départ' : `Jour ${i + 1}`, matin: i === 0 ? 'Arrivée, installation, premier tour du quartier' : g[0], apresmidi: i === n - 1 && n > 1 ? 'Dernières courses et trajet retour selon l’horaire' : g[1], soir: i === n - 1 && n > 1 ? 'Retour à la maison' : g[2] };
+  });
+  return { source: 'generique', date: aujourdhui(), jours, conseils: ['Réservez à l’avance les visites très fréquentées.', 'Vérifiez les horaires et les jours de fermeture.', 'Gardez du temps libre : un programme léger se vit mieux.'] };
+}
+const ERR_PROG = { not_granted: 'Autorisation refusée : acceptez l’utilisation de Claude pour obtenir une proposition, ou prenez le programme générique.', rate_limited: 'Trop de demandes en peu de temps. Réessayez dans un moment.', indisponible: 'La génération n’est pas disponible ici. Prenez le programme générique ci-dessous.', format: 'La réponse n’a pas pu être lue. Réessayez.' };
+function carteProgramme(vy) {
+  const e = progEnCours[vy.id], p = vy.programme;
+  if (e && e.etat === 'cours') return `<section class="carte"><h2>Programme proposé</h2><p class="mut">Génération du programme pour ${esc(vy.destination)}… (quelques dizaines de secondes)</p><button class="btn sec" data-act="prog-stop" data-id="${vy.id}">Arrêter</button></section>`;
+  if (!p) return `<section class="carte"><h2>Programme proposé</h2>
+    ${e && e.etat === 'erreur' ? `<p class="mut">${esc(ERR_PROG[e.code] || 'Une erreur est survenue. Réessayez.')}</p>` : `<p class="mut">${vy.destination ? 'Obtenez des idées d’activités jour par jour, adaptées à vos voyageurs.' : 'Indiquez une destination (bouton Modifier) pour obtenir un programme.'}</p>`}
+    <div class="rangee">${vy.destination ? `<button class="btn" data-act="prog-gen" data-id="${vy.id}">Proposer un programme</button>` : ''}<button class="btn sec" data-act="prog-generique" data-id="${vy.id}">Programme générique</button></div></section>`;
+  const lib = { solo: 'seul', couple: 'en couple', famille: 'en famille' }[vy.voyageurs || 'famille'];
+  return `<section class="carte"><div class="carte-tete"><h2>Programme proposé</h2><span class="pill">${lib}</span></div>
+    ${p.jours.map(j => `<details ${j.jour === 1 ? 'open' : ''}><summary>Jour ${j.jour} · ${esc(j.titre)}</summary>
+      <ul class="liste"><li class="rang" style="min-height:0;align-items:flex-start"><span class="rang-txt"><small>Matin</small>${esc(j.matin)}</span></li><li class="rang" style="min-height:0;align-items:flex-start"><span class="rang-txt"><small>Après-midi</small>${esc(j.apresmidi)}</span></li><li class="rang" style="min-height:0;align-items:flex-start"><span class="rang-txt"><small>Soir</small>${esc(j.soir)}</span></li></ul></details>`).join('')}
+    ${p.conseils.length ? `<h3>Conseils</h3><ul class="liste">${p.conseils.map(c => `<li class="rang" style="min-height:0"><span class="rang-txt">${esc(c)}</span></li>`).join('')}</ul>` : ''}
+    <div class="rangee"><button class="btn" data-act="prog-planning" data-id="${vy.id}">Ajouter au planning</button><button class="btn sec" data-act="prog-gen" data-id="${vy.id}">Régénérer</button><button class="btn danger" data-act="prog-del-voy" data-id="${vy.id}">Retirer</button></div>
+    <small>${p.source === 'claude' ? 'Proposition générée par Claude à partir de connaissances générales, sans accès à internet : vérifiez horaires, jours de fermeture, tarifs et réservations.' : 'Programme générique, sans lien avec les lieux de la destination.'}</small></section>`;
+}
+ACTIONS['prog-gen'] = el => { const w = etat.voyages.find(x => x.id === el.dataset.id); w.programme = null; setTimeout(() => lancerProg(w.id), 20); };
+ACTIONS['prog-stop'] = el => { const e = progEnCours[el.dataset.id]; if (e && e.ctl) e.ctl.abort(); return 'vue'; };
+ACTIONS['prog-generique'] = el => { const w = etat.voyages.find(x => x.id === el.dataset.id); w.programme = progGenerique(w); delete progEnCours[w.id]; };
+ACTIONS['prog-del-voy'] = el => { const w = etat.voyages.find(x => x.id === el.dataset.id); w.programme = null; delete progEnCours[w.id]; };
+ACTIONS['prog-planning'] = el => {
+  const w = etat.voyages.find(x => x.id === el.dataset.id); let n = 0;
+  w.programme.jours.forEach(j => [['Matin', j.matin], ['Après-midi', j.apresmidi], ['Soir', j.soir]].forEach(([k, t]) => {
+    const date = iso(ajouteJours(parse(w.debut), j.jour - 1)), txt = `${k} · ${t}`;
+    if (t && !w.etapes.some(x => x.date === date && x.txt === txt)) { w.etapes.push({ id: uid(), date, txt }); n++; }
+  }));
+  info(n ? `${n} étapes ajoutées au planning.` : 'Le planning contient déjà ces étapes.');
+};
 ACTIONS['voy-sel'] = el => { voySel = el.dataset.id; return 'vue'; };
 ACTIONS['voy-coche'] = el => { const c = voyAct().checklist.find(x => x.id === el.dataset.id); c.fait = el.checked; };
 ACTIONS['voy-item-del'] = el => { const v = voyAct(); v.checklist = v.checklist.filter(x => x.id !== el.dataset.id); };

@@ -12,7 +12,7 @@ function vueTable(entetes, lignes) {
     <tbody>${lignes.map(l => `<tr>${l.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>`;
 }
 
-function grapheLigne(id, pts, series, titre, fmtX = fmtCourt) {
+function grapheLigne(id, pts, series, titre, fmtX = fmtCourt, fmtV = eurCourt) {
   const W = 340, H = 190, L = 50, R = 12, T = 10, B = 26;
   const tous = pts.flatMap(p => p.v);
   let lo = Math.min(...tous), hi = Math.max(...tous);
@@ -22,7 +22,7 @@ function grapheLigne(id, pts, series, titre, fmtX = fmtCourt) {
   const X = i => L + (pts.length === 1 ? (W - L - R) / 2 : i * (W - L - R) / (pts.length - 1));
   const Y = v => T + (hi - v) / (hi - lo) * (H - T - B);
   const ticks = [lo, (lo + hi) / 2, hi];
-  GRAPHES[id] = { pts, series, W, L, R, X, fmtX };
+  GRAPHES[id] = { pts, series, W, L, R, X, fmtX, fmtV };
   const chemins = series.map((s, k) => {
     const d = pts.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(p.v[k]).toFixed(1)}`).join(' ');
     const dernier = pts.length - 1;
@@ -32,14 +32,14 @@ function grapheLigne(id, pts, series, titre, fmtX = fmtCourt) {
   return `<figure class="graphe"><figcaption class="mut">${esc(titre)}</figcaption>
     <ul class="legende">${series.map(cleLegende).join('')}</ul>
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(titre)}">
-      ${ticks.map(t => `<line x1="${L}" x2="${W - R}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${(Y(t) + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--mut)">${eurCourt(t)}</text>`).join('')}
+      ${ticks.map(t => `<line x1="${L}" x2="${W - R}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${(Y(t) + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--mut)">${fmtV(t)}</text>`).join('')}
       <text x="${L}" y="${H - 6}" font-size="10" fill="var(--mut)">${fmtX(pts[0].label)}</text>
       <text x="${W - R}" y="${H - 6}" font-size="10" fill="var(--mut)" text-anchor="end">${fmtX(pts[pts.length - 1].label)}</text>
       ${chemins}
       <line id="${id}-x" y1="${T}" y2="${H - B}" stroke="var(--mut)" stroke-width="1" visibility="hidden"/>
       <rect data-graphe="${id}" x="${L}" y="0" width="${W - L - R}" height="${H - B}" fill="transparent"/>
     </svg>
-    ${vueTable(['Date', ...series.map(s => s.nom)], pts.map(p => [fmtX(p.label), ...p.v.map(eurCourt)]))}</figure>`;
+    ${vueTable(['Date', ...series.map(s => s.nom)], pts.map(p => [fmtX(p.label), ...p.v.map(fmtV)]))}</figure>`;
 }
 
 function grapheBarres(id, mois, series, titre, fmtV = eurCourt) {
@@ -96,7 +96,7 @@ function survolLigne(e, hit) {
   g.pts.forEach((_, i) => { const dd = Math.abs(g.X(i) - x); if (dd < d) { d = dd; best = i; } });
   const l = document.getElementById(hit.dataset.graphe + '-x');
   l.setAttribute('x1', g.X(best)); l.setAttribute('x2', g.X(best)); l.setAttribute('visibility', 'visible');
-  poserTip({ titre: g.fmtX(g.pts[best].label), rows: g.series.map((s, k) => ({ c: s.c, nom: s.nom, val: eurCourt(g.pts[best].v[k]) })) },
+  poserTip({ titre: g.fmtX(g.pts[best].label), rows: g.series.map((s, k) => ({ c: s.c, nom: s.nom, val: g.fmtV(g.pts[best].v[k]) })) },
     r.left + g.X(best) / g.W * r.width, e.clientY || r.top + 40);
 }
 document.addEventListener('pointermove', e => {

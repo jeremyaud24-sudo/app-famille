@@ -51,6 +51,62 @@ function statsSemaine(id, lun) {
 const semaine = k => iso(ajouteJours(parse(lundiIso()), -7 * k));
 const pnum = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
+// ---------- Allure ----------
+const SPORT_DIST = ['course', 'marche', 'velo', 'natation'];
+const mmss = sec => { const r = Math.round(sec); return `${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')}`; };
+const hhmmss = min => { const r = Math.round(min * 60), h = Math.floor(r / 3600), m = Math.floor(r % 3600 / 60), sc = r % 60; return h ? `${h} h ${String(m).padStart(2, '0')}` : `${m}:${String(sc).padStart(2, '0')}`; };
+// secondes par km (course, marche), par 100 m (natation), ou km/h (vélo)
+function allureSec(s) {
+  if (!s.distance || !s.duree || !SPORT_DIST.includes(s.type)) return null;
+  return s.type === 'velo' ? s.distance / (s.duree / 60) : s.type === 'natation' ? s.duree * 60 / (s.distance * 10) : s.duree * 60 / s.distance;
+}
+const fmtAllureVal = (type, v) => (type === 'velo' ? `${v.toFixed(1).replace('.', ',')} km/h` : type === 'natation' ? `${mmss(v)}/100 m` : `${mmss(v)}/km`);
+const fmtAllure = s => { const v = allureSec(s); return v == null ? '' : fmtAllureVal(s.type, v); };
+const plageAllure = txt => { const m = /(\d+):(\d+)\s*-\s*(\d+):(\d+)/.exec(txt || ''); return m ? [m[1] * 60 + +m[2], m[3] * 60 + +m[4]] : null; };
+function badgeAllure(s) {
+  const r = plageAllure(s.allurePrevue), v = allureSec(s);
+  if (!r || v == null || s.type !== 'course') return '';
+  const facile = /foot|sortie/i.test(s.titre || '');
+  return v < r[0] - 2 ? (facile ? '<span class="pill warn">Plus rapide que prévu</span>' : '<span class="pill ok">Plus rapide que prévu</span>')
+    : v > r[1] + 2 ? '<span class="pill warn">Plus lent que prévu</span>' : '<span class="pill ok">Dans l’allure</span>';
+}
+let allureType = 'course';
+const tempsTotal = l => somme(l, s => s.duree) * 60 / Math.max(0.001, somme(l, s => s.distance));
+function carteAllure(m) {
+  const p = profilSport(m.id), toutes = seancesDe(m.id).filter(s => allureSec(s) != null);
+  const types = SPORT_DIST.filter(t => toutes.some(s => s.type === t));
+  if (!types.length) return `<section class="carte"><h2>Allure</h2><p class="vide">Renseignez la distance de vos séances (course, marche, vélo, natation) pour suivre votre allure.</p></section>`;
+  if (!types.includes(allureType)) allureType = types[0];
+  const l = toutes.filter(s => s.type === allureType).sort((a, b) => a.date.localeCompare(b.date) || (a.id > b.id ? 1 : -1));
+  const dern = l.slice(-12), velo = allureType === 'velo', fmtV = v => fmtAllureVal(allureType, v);
+  const moyenne = lst => (velo ? somme(lst, s => s.distance) / (somme(lst, s => s.duree) / 60) : tempsTotal(lst));
+  const dernieres = l.slice(-4), moy4 = moyenne(dernieres);
+  const eligibles = allureType === 'course' ? l.filter(s => s.distance >= 3) : l;
+  const meilleure = eligibles.length ? (velo ? Math.max(...eligibles.map(allureSec)) : Math.min(...eligibles.map(allureSec))) : null;
+  let tendance = '';
+  if (l.length >= 6) {
+    const a = moyenne(l.slice(-3)), b = moyenne(l.slice(-6, -3)), d = velo ? a - b : b - a; // positif = mieux
+    tendance = `<div class="kv"><span>Tendance (3 dernières sorties)</span><b style="color:var(--${d > 0 ? 'ok' : 'warn'})">${d > 0 ? 'En progrès' : 'Plus lente'} : ${velo ? Math.abs(d).toFixed(1).replace('.', ',') + ' km/h' : Math.abs(Math.round(d)) + ' s/km'}</b></div>`;
+  }
+  let projections = '';
+  if (allureType === 'course') {
+    const il56 = iso(ajouteJours(new Date(), -56)), rec = l.filter(s => s.distance >= 4 && s.date >= il56);
+    if (rec.length) {
+      const prev = D => Math.min(...rec.map(s => s.duree * Math.pow(D / s.distance, 1.06)));
+      projections = `<div class="kv"><span>Estimation 10 km</span><b>${hhmmss(prev(10))}</b></div><div class="kv"><span>Estimation semi-marathon</span><b>${hhmmss(prev(21.0975))}</b></div>
+        <small>Estimations indicatives (formule de Riegel) d’après votre meilleure sortie des 8 dernières semaines. Une sortie volontairement facile les sous-estime.</small>`;
+    }
+    if (p.obj10k) projections += `<div class="kv"><span>Objectif 10 km</span><b>${hhmmss(p.obj10k)}${p.ref10k ? ' · départ ' + hhmmss(p.ref10k) : ''}</b></div>`;
+  }
+  const pts = dern.map(s => ({ label: s.date, v: [allureSec(s)] }));
+  return `<section class="carte"><h2>Allure</h2>
+    ${types.length > 1 ? `<div class="chips" role="group" aria-label="Sport">${types.map(t => `<button data-act="allure-type" data-v="${t}" aria-pressed="${allureType === t}">${nomSport(t)}</button>`).join('')}</div>` : ''}
+    <div class="kv"><span>Allure moyenne (4 dernières séances)</span><b>${fmtV(moy4)}</b></div>
+    ${meilleure != null ? `<div class="kv"><span>Meilleure allure${allureType === 'course' ? ' (3 km ou plus)' : ''}</span><b>${fmtV(meilleure)}</b></div>` : ''}
+    ${tendance}${projections}
+    ${pts.length >= 2 ? grapheLigne('allure' + allureType, pts, [{ nom: 'Allure par séance', c: '--c1' }], `Allure des ${pts.length} dernières séances${velo ? '' : ' (plus bas = plus rapide)'}`, fmtCourt, fmtV) : '<small>Enregistrez au moins deux séances avec distance pour voir la courbe.</small>'}</section>`;
+}
+
 // ---------- Conseils ----------
 function contexteJour(id, date) {
   const faites = seancesDe(id).filter(s => s.date === date);
@@ -155,9 +211,10 @@ VUES.suivisport = function () {
     <section class="carte"><div class="carte-tete"><h2>Aujourd’hui</h2><button class="lien" data-goto="plansport">Plan</button></div>
       ${aFaire.map(x => `<div class="rang"><span class="rang-txt"><b>${esc(x.titre || nomSport(x.type))}</b><small>${nomSport(x.type)} · ${x.duree} min · effort ${x.rpe}/10</small></span><button class="btn" data-act="ouvrir" data-sheet="seance" data-plan="${x.id}">Valider</button></div>`).join('')
         || (faitsAuj.length ? `<p class="mut">Séance enregistrée aujourd’hui : ${faitsAuj.map(s => esc(s.titre || nomSport(s.type)) + ' ' + s.duree + ' min').join(', ')}.</p>` : '<p class="vide">Rien de prévu aujourd’hui. Jour de repos ou séance libre.</p>')}</section>
+    ${carteAllure(m)}
     <section class="carte"><h2>Minutes par semaine</h2>${grapheBarres('sport8', semaines, [{ nom: 'Minutes', c: '--c1' }], 'Minutes d’activité sur 8 semaines', v => Math.round(v) + ' min')}</section>
     <section class="carte"><div class="carte-tete"><h2>Dernières séances</h2><button class="lien" data-act="ouvrir" data-sheet="sport-profil">Profil</button></div>
-      <ul class="liste">${recent.map(s => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="seance" data-id="${s.id}"><span class="rang-txt"><b>${esc(s.titre || nomSport(s.type))}</b><small>${fmtDate(s.date)} · ${s.duree} min · effort ${s.rpe}/10${s.distance ? ' · ' + String(s.distance).replace('.', ',') + ' km' : ''}${s.douleur ? ' · douleur' : ''}</small></span></button>
+      <ul class="liste">${recent.map(s => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="seance" data-id="${s.id}"><span class="rang-txt"><b>${esc(s.titre || nomSport(s.type))}</b><small>${fmtDate(s.date)} · ${s.duree} min · effort ${s.rpe}/10${s.distance ? ' · ' + String(s.distance).replace('.', ',') + ' km' : ''}${fmtAllure(s) ? ' · ' + fmtAllure(s) : ''}${s.douleur ? ' · douleur' : ''}</small></span>${badgeAllure(s)}</button>
         <button class="icone" data-act="seance-del" data-id="${s.id}" aria-label="Supprimer la séance">${ico('x', 18)}</button></li>`).join('') || '<li class="vide">Aucune séance enregistrée. Touchez « + Séance » pour commencer.</li>'}</ul></section>`;
 };
 VUES.plansport = function () {
@@ -206,9 +263,9 @@ VUES.conseilssport = function () {
 SHEETS.seance = d => {
   const s = d.id ? etat.sportSeances.find(x => x.id === d.id) : null, pl_ = d.plan ? trouverPrevue(sportM, d.plan) : null;
   const v = (k, def = '') => (s ? s[k] : pl_ && pl_[k] != null ? pl_[k] : def);
-  return { titre: s ? 'Modifier la séance' : 'Enregistrer une séance', corps: `<form class="formulaire" data-form="seance"><input type="hidden" name="id" value="${s ? s.id : ''}">
+  return { titre: s ? 'Modifier la séance' : 'Enregistrer une séance', corps: `<form class="formulaire" data-form="seance"><input type="hidden" name="id" value="${s ? s.id : ''}"><input type="hidden" name="allurePrevue" value="${esc(s ? s.allurePrevue || '' : pl_ ? pl_.allure || '' : '')}">
     <div class="duo">${fld('Pour', `<select name="membre">${optionsMembres(s ? s.membre : sportM)}</select>`)}${fld('Date', `<input type="date" name="date" value="${s ? s.date : aujourdhui()}" required>`)}</div>
-    <div class="duo">${fld('Sport', `<select name="type">${optSel(SPORTS, v('type', 'course'))}</select>`)}${fld('Durée (min)', `<input type="number" name="duree" min="1" max="600" required inputmode="numeric" value="${v('duree')}">`)}</div>
+    <div class="duo">${fld('Sport', `<select name="type">${optSel(SPORTS, v('type', 'course'))}</select>`)}${fld('Durée (min)', `<input type="number" name="duree" min="1" max="600" step="0.1" required inputmode="decimal" value="${v('duree')}">`)}</div>
     ${fld('Effort ressenti (1 à 10)', `<select name="rpe">${optRpe(Number(v('rpe', 5)))}</select>`)}
     ${fld('Titre (facultatif)', `<input name="titre" autocomplete="off" value="${esc(v('titre'))}" placeholder="Sortie longue">`)}
     <div class="duo">${fld('Distance (km)', `<input type="number" name="distance" min="0" step="0.1" inputmode="decimal" value="${s && s.distance ? s.distance : ''}">`)}${fld('Note', `<input name="note" autocomplete="off" value="${esc(s ? s.note : '')}">`)}</div>
@@ -229,6 +286,7 @@ SHEETS['sport-profil'] = () => {
   return { titre: 'Profil sportif de ' + m.nom, corps: `<form class="formulaire" data-form="sport-profil"><input type="hidden" name="id" value="${m.id}">
     <div class="duo">${fld('Poids (kg)', `<input type="number" name="poids" min="10" max="250" step="0.1" inputmode="decimal" value="${p.poids || ''}">`)}${fld('Sommeil moyen (h)', `<input type="number" name="sommeil" min="3" max="12" step="0.5" inputmode="decimal" value="${p.sommeil || ''}">`)}</div>
     <div class="duo">${fld('Objectif', `<select name="objectif">${optSel(OBJECTIFS_SPORT, p.objectif)}</select>`)}${fld('Niveau', `<select name="niveau">${optSel(NIVEAUX, p.niveau)}</select>`)}</div>
+    <div class="duo">${fld('Temps 10 km actuel (min)', `<input type="number" name="ref10k" min="0" step="0.5" inputmode="decimal" value="${p.ref10k || ''}">`)}${fld('Objectif 10 km (min)', `<input type="number" name="obj10k" min="0" step="0.5" inputmode="decimal" value="${p.obj10k || ''}">`)}</div>
     ${fld('Objectif hebdomadaire (minutes)', `<input type="number" name="objHebdo" min="0" step="10" inputmode="numeric" value="${p.objHebdo || ''}" placeholder="${objectifHebdo(m, p)} (repère)">`)}
     <small>Le poids sert uniquement à calculer des repères d’alimentation. Il est partagé avec la famille si la synchronisation est active.</small>
     <button class="btn plein">Enregistrer</button></form>` };
@@ -244,7 +302,7 @@ SHEETS['modele-plan'] = () => ({ titre: 'Choisir un modèle', corps: `<p class="
 
 // ---------- Actions et formulaires ----------
 FORMS.seance = f => {
-  const o = { membre: f.membre.value, date: f.date.value, type: f.type.value, duree: Number(f.duree.value) || 0, rpe: Number(f.rpe.value) || 5, titre: f.titre.value.trim(), distance: Number(f.distance.value) || 0, note: f.note.value.trim(), douleur: f.douleur.checked };
+  const o = { membre: f.membre.value, date: f.date.value, type: f.type.value, duree: Number(f.duree.value) || 0, rpe: Number(f.rpe.value) || 5, titre: f.titre.value.trim(), allurePrevue: f.allurePrevue.value, distance: Number(f.distance.value) || 0, note: f.note.value.trim(), douleur: f.douleur.checked };
   const i = etat.sportSeances.findIndex(x => x.id === f.id.value);
   if (i >= 0) Object.assign(etat.sportSeances[i], o); else etat.sportSeances.push({ id: uid(), ...o });
   sportM = o.membre;
@@ -255,7 +313,7 @@ FORMS['plan-item'] = f => {
   if (i >= 0) Object.assign(etat.sportPlan[i], o); else etat.sportPlan.push({ id: uid(), ...o });
 };
 FORMS['sport-profil'] = f => {
-  const o = { id: f.id.value, poids: Number(f.poids.value) || 0, sommeil: Number(f.sommeil.value) || 0, objectif: f.objectif.value, niveau: f.niveau.value, objHebdo: Number(f.objHebdo.value) || 0 };
+  const o = { id: f.id.value, poids: Number(f.poids.value) || 0, sommeil: Number(f.sommeil.value) || 0, objectif: f.objectif.value, niveau: f.niveau.value, objHebdo: Number(f.objHebdo.value) || 0, ref10k: Number(f.ref10k.value) || 0, obj10k: Number(f.obj10k.value) || 0 };
   const i = etat.sportProfils.findIndex(x => x.id === o.id);
   if (i >= 0) etat.sportProfils[i] = o; else etat.sportProfils.push(o);
 };
@@ -278,3 +336,4 @@ ACTIONS['prog-semaine'] = async el => {
   p.debut = iso(ajouteJours(parse(lundiIso()), -7 * (n - 1)));
   if (p.courseJour != null) p.course = iso(ajouteJours(parse(p.debut), 7 * (p.semaines.length - 1) + p.courseJour));
 };
+ACTIONS['allure-type'] = el => { allureType = el.dataset.v; return 'vue'; };
