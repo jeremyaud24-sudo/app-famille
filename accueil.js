@@ -32,7 +32,7 @@ const BLOCS = {
   sport: ['Sport du jour', () => {
     const m = membreSport();
     if (!m) return '';
-    const auj = aujourdhui(), prevu = planDe(m.id).filter(x => x.jour === jourIdx(auj)), faits = seancesDe(m.id).filter(s => s.date === auj);
+    const auj = aujourdhui(), prevu = prevuesLe(m.id, auj), faits = seancesDe(m.id).filter(s => s.date === auj);
     const p = profilSport(m.id), s0 = statsSemaine(m.id, semaine(0)), objH = objectifHebdo(m, p);
     if (!prevu.length && !faits.length && !s0.n && !planDe(m.id).length) return '';
     const reste = prevu.filter(x => !faits.some(s => s.type === x.type));

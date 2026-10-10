@@ -12,8 +12,9 @@ const optRpe = sel => Array.from({ length: 10 }, (_, i) => i + 1).map(i => `<opt
 
 let sportM = '';
 const membreSport = () => {
-  if (!etat.membres.length) return null;
-  if (!etat.membres.some(m => m.id === sportM)) sportM = etat.membres.some(m => m.id === etat.actif) ? etat.actif : etat.membres[0].id;
+  const l = membresSport();
+  if (!l.length) return null;
+  if (!l.some(m => m.id === sportM)) sportM = l.some(m => m.id === etat.actif) ? etat.actif : l[0].id;
   return membre(sportM);
 };
 function ageDe(m) {
@@ -23,11 +24,24 @@ function ageDe(m) {
   if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--;
   return a;
 }
-const categorie = m => { const a = ageDe(m); return a == null || a >= 18 ? 'adulte' : a >= 12 ? 'ado' : 'enfant'; };
+const categorie = m => { if (m.tranche) return m.tranche; const a = ageDe(m); return a == null || a >= 18 ? 'adulte' : a >= 12 ? 'ado' : a >= 2 ? 'enfant' : 'bebe'; };
+const membresSport = () => etat.membres.filter(m => categorie(m) !== 'bebe');
 const profilSport = id => etat.sportProfils.find(x => x.id === id) || { id, poids: 0, objectif: 'forme', niveau: 'moyen', sommeil: 0, objHebdo: 0 };
 const objectifHebdo = (m, p) => p.objHebdo || (categorie(m) === 'adulte' ? 150 : 420);
 const seancesDe = id => etat.sportSeances.filter(s => s.membre === id);
 const planDe = id => etat.sportPlan.filter(s => s.membre === id);
+const progDe = id => (etat.sportProg || []).find(p => p.membre === id);
+// Séances prévues un jour donné : séances hebdomadaires récurrentes + séances du programme
+function prevuesLe(id, date) {
+  const l = planDe(id).filter(x => x.jour === jourIdx(date));
+  (etat.sportProg || []).filter(p => p.membre === id).forEach(p => {
+    const off = diffJours(p.debut, date), n = Math.floor(off / 7) + 1;
+    const sem = p.semaines.find(w => w.n === n);
+    if (off >= 0 && sem) sem.seances.filter(x => x.jour === off % 7).forEach((x, k) => l.push({ ...x, id: `${p.id}:${n}:${x.id}`, membre: id, prog: p.nom, semaine: n }));
+  });
+  return l;
+}
+const trouverPrevue = (id, plan) => planDe(id).find(x => x.id === plan) || (() => { for (let i = -7; i <= 7; i++) { const x = prevuesLe(id, iso(ajouteJours(new Date(), i))).find(y => y.id === plan); if (x) return x; } return null; })();
 const lundiIso = (d = new Date()) => iso(lundi(d));
 const jourIdx = d => (parse(d).getDay() + 6) % 7;
 function statsSemaine(id, lun) {
@@ -40,7 +54,7 @@ const pnum = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 // ---------- Conseils ----------
 function contexteJour(id, date) {
   const faites = seancesDe(id).filter(s => s.date === date);
-  const prevues = planDe(id).filter(s => s.jour === jourIdx(date));
+  const prevues = prevuesLe(id, date);
   const l = faites.length ? faites : prevues.map(s => ({ duree: s.duree, rpe: s.rpe, type: s.type, prevue: true }));
   const minutes = somme(l, s => s.duree), rpe = Math.max(0, ...l.map(s => s.rpe));
   const type = !l.length ? 'repos' : (rpe >= 8 || minutes >= 90) ? 'long' : (minutes >= 45 || rpe >= 5) ? 'modere' : 'leger';
@@ -121,7 +135,7 @@ const SEV_SPORT = { rouge: ['bad', 'Important'], orange: ['warn', 'À surveiller
 const consSport = l => l.map(([n, t]) => `<div class="cons"><span class="pill ${SEV_SPORT[n][0]}">${SEV_SPORT[n][1]}</span><p>${esc(t)}</p></div>`).join('');
 function chipsSport() {
   const m = membreSport();
-  return m ? `<div class="chips" role="group" aria-label="Choisir un membre">${etat.membres.map(x => `<button data-act="sport-membre" data-id="${x.id}" aria-pressed="${x.id === m.id}">${esc(x.nom)}</button>`).join('')}</div>` : '';
+  return m ? `<div class="chips" role="group" aria-label="Choisir un membre">${membresSport().map(x => `<button data-act="sport-membre" data-id="${x.id}" aria-pressed="${x.id === m.id}">${esc(x.nom)}</button>`).join('')}</div>` : '';
 }
 const videSport = () => `<section class="carte"><h2>Sport en famille</h2><p class="mut">Ajoutez d’abord les membres de la famille : chacun a son plan d’entraînement, son suivi et ses conseils.</p><button class="btn" data-act="ouvrir" data-sheet="membre">Ajouter un membre</button></section>`;
 
@@ -129,7 +143,7 @@ VUES.suivisport = function () {
   const m = membreSport();
   if (!m) return videSport();
   const p = profilSport(m.id), objH = objectifHebdo(m, p), s0 = statsSemaine(m.id, semaine(0)), auj = aujourdhui();
-  const prevu = planDe(m.id).filter(x => x.jour === jourIdx(auj));
+  const prevu = prevuesLe(m.id, auj);
   const faitsAuj = seancesDe(m.id).filter(s => s.date === auj);
   const aFaire = prevu.filter(x => !faitsAuj.some(s => s.type === x.type));
   const semaines = Array.from({ length: 8 }, (_, i) => { const k = 7 - i, lun = semaine(k), d = parse(lun); return { label: `Semaine du ${d.getDate()} ${MOIS[d.getMonth()]}`, court: `${d.getDate()}/${d.getMonth() + 1}`, v: [statsSemaine(m.id, lun).minutes] }; });
@@ -149,14 +163,29 @@ VUES.suivisport = function () {
 VUES.plansport = function () {
   const m = membreSport();
   if (!m) return videSport();
-  const plan = planDe(m.id), auj = jourIdx(aujourdhui());
+  const plan = planDe(m.id), auj = jourIdx(aujourdhui()), prog = progDe(m.id), lun = lundiIso();
   const min = somme(plan, x => x.duree), charge = somme(plan, x => x.duree * x.rpe);
+  let carteProg = '';
+  if (prog) {
+    const n = Math.floor(diffJours(prog.debut, aujourdhui()) / 7) + 1, tot = prog.semaines.length, fin = iso(ajouteJours(parse(prog.debut), 7 * tot - 1));
+    const w = prog.semaines.find(x => x.n === n);
+    carteProg = `<section class="carte"><div class="carte-tete"><h2>${esc(prog.nom)}</h2><span class="pill pri">${n < 1 ? 'À venir' : n > tot ? 'Terminé' : `Semaine ${n}/${tot}`}</span></div>
+      ${prog.objectif ? `<p class="mut">${esc(prog.objectif)}</p>` : ''}
+      ${prog.course ? `<div class="kv"><span>Course</span><b>${fmtDate(prog.course)}${diffJours(aujourdhui(), prog.course) >= 0 ? ` · dans ${diffJours(aujourdhui(), prog.course)} j` : ''}</b></div>` : ''}
+      ${w && !w.seances.length ? `<p class="mut">Pas de séance du programme cette semaine${w.note ? ' (semaine ' + w.n + ' ' + esc(w.note) + ')' : ''}. Reprise lundi prochain avec la semaine ${n + 1}.</p>` : ''}
+      ${w && w.seances.length ? `<h3>Cette semaine</h3><ul class="liste">${[...w.seances].sort((a, b) => a.jour - b.jour).map(x => `<li class="rang" style="min-height:48px"><span class="heure" style="flex-basis:60px">${JOURS_L[x.jour].slice(0, 3)}</span><span class="rang-txt"><b>${esc(x.titre)}</b><small>${esc(x.contenu)}${x.allure && x.allure !== '-' ? ' · ' + esc(x.allure) : ''}</small></span></li>`).join('')}</ul>` : ''}
+      <details><summary>Voir tout le programme</summary>${prog.semaines.map(w2 => `<h3>Semaine ${w2.n}${w2.n === n ? ' · en cours' : ''}${w2.note ? ' · ' + esc(w2.note) : ''}</h3><ul class="liste">${w2.seances.map(x => `<li class="rang" style="min-height:44px"><span class="rang-txt"><b>${esc(x.titre)}</b><small>${JOURS_L[x.jour]} ${fmtDate(iso(ajouteJours(parse(prog.debut), 7 * (w2.n - 1) + x.jour))).split(' ').slice(1).join(' ')} · ${esc(x.contenu)}${x.allure && x.allure !== '-' ? ' · ' + esc(x.allure) : ''}</small></span></li>`).join('')}</ul>`).join('')}</details>
+      <div class="rangee"><button class="btn sec" data-act="prog-semaine" data-id="${prog.id}">Changer la semaine en cours</button><button class="btn danger" data-act="prog-del" data-id="${prog.id}">Supprimer</button></div>
+      <small>Les durées marquées « estimées » servent seulement aux conseils. Le programme s’affiche dans le suivi du jour et alimente les conseils de récupération.</small></section>`;
+  }
   return `${chipsSport()}
-    <section class="carte"><div class="carte-tete"><h2>Plan de ${esc(m.nom)}</h2><span class="pill pri">${plan.length} séance${pl(plan.length)}</span></div>
-      <p class="mut">${plan.length ? `${min} min par semaine · charge prévue ${pnum(charge)}` : 'Aucun plan. Ajoutez vos séances jour par jour, ou partez d’un modèle.'}</p>
+    ${carteProg}
+    <section class="carte"><div class="carte-tete"><h2>Séances de la semaine</h2><span class="pill pri">${plan.length} récurrente${pl(plan.length)}</span></div>
+      <p class="mut">${plan.length ? `Séances récurrentes : ${min} min par semaine · charge prévue ${pnum(charge)}` : 'Ajoutez des séances qui reviennent chaque semaine (renforcement, cours collectif…), ou partez d’un modèle.'}</p>
       <button class="btn sec" data-act="ouvrir" data-sheet="modele-plan">Partir d’un modèle</button></section>
-    ${JOURS_L.map((j, i) => { const l = plan.filter(x => x.jour === i); return `<section class="carte"${i === auj ? ' style="border-color:var(--pri)"' : ''}><div class="carte-tete"><h2>${j}${i === auj ? ' · aujourd’hui' : ''}</h2><button class="lien" data-act="ouvrir" data-sheet="plan-item" data-jour="${i}">Ajouter</button></div>
-      ${l.length ? `<ul class="liste">${l.map(x => `<li><button class="rang" data-act="ouvrir" data-sheet="plan-item" data-id="${x.id}"><span class="rang-txt"><b>${esc(x.titre || nomSport(x.type))}</b><small>${nomSport(x.type)} · ${x.duree} min · effort ${x.rpe}/10${x.note ? ' · ' + esc(x.note) : ''}</small></span></button></li>`).join('')}</ul>` : '<small>Repos</small>'}</section>`; }).join('')}`;
+    ${JOURS_L.map((j, i) => { const date = iso(ajouteJours(parse(lun), i)), l = prevuesLe(m.id, date); return `<section class="carte"${i === auj ? ' style="border-color:var(--pri)"' : ''}><div class="carte-tete"><h2>${j}${i === auj ? ' · aujourd’hui' : ''}</h2><button class="lien" data-act="ouvrir" data-sheet="plan-item" data-jour="${i}">Ajouter</button></div>
+      ${l.length ? `<ul class="liste">${l.map(x => x.prog ? `<li class="rang" style="min-height:48px"><span class="rang-txt"><b>${esc(x.titre || nomSport(x.type))}</b><small>${nomSport(x.type)} · ${x.duree} min${x.estime ? ' (estimée)' : ''} · effort ${x.rpe}/10${x.note ? ' · ' + esc(x.note) : ''}</small></span><span class="pill">Programme</span></li>`
+        : `<li><button class="rang" data-act="ouvrir" data-sheet="plan-item" data-id="${x.id}"><span class="rang-txt"><b>${esc(x.titre || nomSport(x.type))}</b><small>${nomSport(x.type)} · ${x.duree} min · effort ${x.rpe}/10${x.note ? ' · ' + esc(x.note) : ''}</small></span></button></li>`).join('')}</ul>` : '<small>Repos</small>'}</section>`; }).join('')}`;
 };
 VUES.conseilssport = function () {
   const m = membreSport();
@@ -175,7 +204,7 @@ VUES.conseilssport = function () {
 
 // ---------- Feuilles ----------
 SHEETS.seance = d => {
-  const s = d.id ? etat.sportSeances.find(x => x.id === d.id) : null, pl_ = d.plan ? etat.sportPlan.find(x => x.id === d.plan) : null;
+  const s = d.id ? etat.sportSeances.find(x => x.id === d.id) : null, pl_ = d.plan ? trouverPrevue(sportM, d.plan) : null;
   const v = (k, def = '') => (s ? s[k] : pl_ && pl_[k] != null ? pl_[k] : def);
   return { titre: s ? 'Modifier la séance' : 'Enregistrer une séance', corps: `<form class="formulaire" data-form="seance"><input type="hidden" name="id" value="${s ? s.id : ''}">
     <div class="duo">${fld('Pour', `<select name="membre">${optionsMembres(s ? s.membre : sportM)}</select>`)}${fld('Date', `<input type="date" name="date" value="${s ? s.date : aujourdhui()}" required>`)}</div>
@@ -239,4 +268,13 @@ ACTIONS['plan-modele'] = async el => {
   etat.sportPlan = etat.sportPlan.filter(x => x.membre !== m.id).concat(l.map(([jour, type, titre, duree, rpe]) => ({ id: uid(), membre: m.id, jour, type, titre, duree, rpe, note: '' })));
   fermerFeuille();
   info('Plan enregistré. Modifiez les séances à votre convenance.');
+};
+ACTIONS['prog-del'] = el => { etat.sportProg = etat.sportProg.filter(p => p.id !== el.dataset.id); };
+ACTIONS['prog-semaine'] = async el => {
+  const p = etat.sportProg.find(x => x.id === el.dataset.id);
+  const r = await dialogue({ titre: 'Semaine en cours du programme', texte: `Indiquez à quelle semaine du programme (1 à ${p.semaines.length}) correspond cette semaine. Les dates de toutes les séances sont recalculées.`, champs: [{ nom: 'n', label: 'Semaine du programme cette semaine', valeur: Math.min(p.semaines.length, Math.max(1, Math.floor(diffJours(p.debut, aujourdhui()) / 7) + 1)) }], ok: 'Appliquer' });
+  const n = r && Math.round(Number(r.n));
+  if (!n || n < 1 || n > p.semaines.length) return false;
+  p.debut = iso(ajouteJours(parse(lundiIso()), -7 * (n - 1)));
+  if (p.courseJour != null) p.course = iso(ajouteJours(parse(p.debut), 7 * (p.semaines.length - 1) + p.courseJour));
 };

@@ -6,7 +6,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 // ---------- Données ----------
-const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], accueil: {}, sportProfils: [], sportPlan: [], sportSeances: [] });
+const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], accueil: {}, sportProfils: [], sportPlan: [], sportSeances: [], sportProg: [] });
 let etat = charger();
 
 function charger() {
@@ -410,7 +410,7 @@ function feuille(titre, corps) {
 const fermerFeuille = () => document.querySelectorAll('.modal').forEach(m => m.remove());
 
 // ---------- Actions ----------
-const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del', 'pret-del', 'recette-del', 'carnet-del', 'cadeau-del', 'voyage-del', 'voy-item-del', 'voy-etape-del', 'voy-dep-del', 'seance-del', 'plan-item-del']);
+const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del', 'pret-del', 'recette-del', 'carnet-del', 'cadeau-del', 'voyage-del', 'voy-item-del', 'voy-etape-del', 'voy-dep-del', 'seance-del', 'plan-item-del', 'prog-del']);
 const ACTIONS = {
   'ouvrir': el => { ouvrirFeuille(el.dataset.sheet, el.dataset); return 'vue'; },
   'filtre': el => { filtreT = el.dataset.v; return 'vue'; },
@@ -458,6 +458,7 @@ const ACTIONS = {
     etat.events.forEach(e => { if (e.membre === id) e.membre = ''; });
     etat.sportSeances = etat.sportSeances.filter(x => x.membre !== id);
     etat.sportPlan = etat.sportPlan.filter(x => x.membre !== id);
+    etat.sportProg = etat.sportProg.filter(x => x.membre !== id);
     etat.sportProfils = etat.sportProfils.filter(x => x.id !== id);
   },
   'mois-budget': el => {
@@ -626,7 +627,7 @@ function dialogue({ titre = '', texte = '', champs = [], ok = 'Valider', annuler
       ${titre ? `<h2>${esc(titre)}</h2>` : ''}${texte ? `<p>${esc(texte)}</p>` : ''}
       ${champs.map((c, i) => c.zone
         ? `<textarea id="dlg${i}" name="${c.nom}" rows="8" ${c.lecture ? 'readonly' : 'required'} aria-label="${esc(c.nom)}">${esc(c.valeur)}</textarea>`
-        : fld(esc(c.label), `<input id="dlg${i}" name="${c.nom}" type="${c.type || 'number'}" ${c.type ? '' : 'step="any" inputmode="decimal"'} value="${esc(c.valeur ?? '')}" required>`)).join('')}
+        : fld(esc(c.label), `<input id="dlg${i}" name="${c.nom}" type="${c.type || 'number'}" ${c.type ? '' : 'step="any" inputmode="decimal"'} value="${esc(c.valeur ?? '')}"${c.facultatif ? '' : ' required'}>`)).join('')}
       <div class="actions">${copie ? '<button type="button" class="btn sec" data-copie>Copier</button>' : ''}${annuler ? '<button type="button" class="btn sec" data-non>Annuler</button>' : ''}<button class="btn">${esc(ok)}</button></div></form>`;
     document.body.appendChild(fond);
     const f = fond.firstElementChild;
