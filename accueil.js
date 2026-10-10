@@ -24,7 +24,7 @@ const BLOCS = {
     const auj = aujourdhui(), evs = evenementsDu(auj), prochains = [];
     for (let i = 1; i <= 30 && prochains.length < 3; i++) { const d = iso(ajouteJours(parse(auj), i)); evenementsDu(d).forEach(e => { if (prochains.length < 3) prochains.push({ ...e, date: d }); }); }
     return `<section class="carte"><div class="carte-tete"><h2>Aujourd’hui</h2><button class="lien" data-goto="agenda">Agenda</button></div>
-      ${evs.length ? `<ul class="liste">${evs.map(e => `<li class="rang"><span class="heure">${esc(e.heure || '—')}</span><span class="rang-txt">${esc(e.titre)}</span>${avatar(e.membre)}</li>`).join('')}</ul>`
+      ${evs.length ? `<ul class="liste">${evs.map(e => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="event" data-id="${e.id}" aria-label="Modifier ${esc(e.titre)}"><span class="heure">${esc(e.heure || '—')}</span><span class="rang-txt">${esc(e.titre)}</span>${avatar(e.membre)}</button></li>`).join('')}</ul>`
         : `<p class="vide">Journée libre.<br><button class="btn sec" data-act="ouvrir" data-sheet="event">Ajouter un événement</button></p>`}
       ${prochains.length ? `<small>À venir : ${prochains.map(e => `${fmtDate(e.date)} · ${esc(e.titre)}`).join(' — ')}</small>` : ''}</section>`;
   }],

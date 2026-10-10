@@ -133,12 +133,12 @@ VUES.voyages = function () {
         <button class="icone" data-act="voy-item-del" data-id="${c.id}" aria-label="Supprimer ${esc(c.txt)}">${ico('x', 18)}</button></li>`).join('') || '<li class="vide">Checklist vide.</li>'}</ul>
       ${v.checklist.length ? '' : '<button class="btn sec" data-act="voy-valise">Ajouter une liste de départ</button>'}</section>
     <section class="carte"><div class="carte-tete"><h2>Planning</h2><button class="lien" data-act="ouvrir" data-sheet="voy-etape">Ajouter</button></div>
-      <ul class="liste">${[...v.etapes].sort((a, b) => a.date.localeCompare(b.date)).map(e => `<li class="rang"><span class="heure" style="flex-basis:70px">${fmtDate(e.date).slice(0, -0)}</span><span class="rang-txt">${esc(e.txt)}</span>
+      <ul class="liste">${[...v.etapes].sort((a, b) => a.date.localeCompare(b.date)).map(e => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="voy-etape" data-id="${e.id}" aria-label="Modifier l’étape"><span class="heure" style="flex-basis:70px">${fmtDate(e.date)}</span><span class="rang-txt">${esc(e.txt)}</span></button>
         <button class="icone" data-act="voy-etape-del" data-id="${e.id}" aria-label="Supprimer">${ico('x', 18)}</button></li>`).join('') || '<li class="vide">Aucune étape. Ajoutez vols, hôtels, visites.</li>'}</ul></section>
     <section class="carte"><div class="carte-tete"><h2>Budget</h2><button class="lien" data-act="ouvrir" data-sheet="voy-dep">Dépense</button></div>
       <div class="bar"><b class="num">${eur(dep)}</b><span class="mut num">${v.budget ? 'sur ' + eur(v.budget) : 'pas de budget fixé'}</span></div>
       ${v.budget ? `<div class="jauge"><i style="width:${Math.min(100, dep / v.budget * 100)}%;background:${dep > v.budget ? 'var(--bad)' : 'var(--ok)'}"></i></div>` : ''}
-      <ul class="liste">${v.depenses.map(d => `<li class="rang" style="min-height:44px"><span class="rang-txt">${esc(d.txt)}</span><b class="num">${eur(d.montant)}</b>
+      <ul class="liste">${v.depenses.map(d => `<li class="rang" style="min-height:44px"><button class="rang-btn" data-act="ouvrir" data-sheet="voy-dep" data-id="${d.id}" aria-label="Modifier la dépense"><span class="rang-txt">${esc(d.txt)}</span><b class="num">${eur(d.montant)}</b></button>
         <button class="icone" data-act="voy-dep-del" data-id="${d.id}" aria-label="Supprimer">${ico('x', 18)}</button></li>`).join('')}</ul></section>
     <div class="rangee"><button class="btn sec" data-act="voy-agenda">Ajouter à l’agenda</button><button class="btn sec" data-act="ouvrir" data-sheet="voyage" data-id="${v.id}">Modifier</button><button class="btn danger" data-act="voyage-del" data-id="${v.id}">Supprimer</button></div>`;
 };
@@ -161,12 +161,18 @@ SHEETS.voyage = d => {
     <small>Avec une destination et des dates, l’application propose un programme d’activités adapté aux voyageurs.</small>
     <button class="btn plein">Enregistrer</button></form>` };
 };
-SHEETS['voy-etape'] = () => ({ titre: 'Nouvelle étape', corps: `<form class="formulaire" data-form="voy-etape">
-  <div class="duo">${fld('Date', `<input type="date" name="date" value="${(etat.voyages.find(x => x.id === voySel) || {}).debut || aujourdhui()}" required>`)}${fld('Étape', '<input name="txt" required autocomplete="off" placeholder="Vol Paris - Lisbonne">')}</div>
-  <button class="btn plein">Ajouter</button></form>` });
-SHEETS['voy-dep'] = () => ({ titre: 'Nouvelle dépense', corps: `<form class="formulaire" data-form="voy-dep">
-  <div class="duo">${fld('Libellé', '<input name="txt" required autocomplete="off" placeholder="Hôtel">')}${fld('Montant (€)', '<input type="number" name="montant" min="0" step="0.01" required inputmode="decimal">')}</div>
-  <button class="btn plein">Ajouter</button></form>` });
+SHEETS['voy-etape'] = d => {
+  const x = d.id ? (voyAct() || { etapes: [] }).etapes.find(i => i.id === d.id) : null;
+  return { titre: x ? 'Modifier l’étape' : 'Nouvelle étape', corps: `<form class="formulaire" data-form="voy-etape"><input type="hidden" name="id" value="${x ? x.id : ''}">
+  <div class="duo">${fld('Date', `<input type="date" name="date" value="${x ? x.date : (voyAct() || {}).debut || aujourdhui()}" required>`)}${fld('Étape', `<input name="txt" required autocomplete="off" placeholder="Vol Paris - Lisbonne" value="${esc(x ? x.txt : '')}">`)}</div>
+  <button class="btn plein">${x ? 'Enregistrer' : 'Ajouter'}</button>${x ? `<button type="button" class="btn danger plein" data-act="voy-etape-del" data-id="${x.id}">Supprimer</button>` : ''}</form>` };
+};
+SHEETS['voy-dep'] = d => {
+  const x = d.id ? (voyAct() || { depenses: [] }).depenses.find(i => i.id === d.id) : null;
+  return { titre: x ? 'Modifier la dépense' : 'Nouvelle dépense', corps: `<form class="formulaire" data-form="voy-dep"><input type="hidden" name="id" value="${x ? x.id : ''}">
+  <div class="duo">${fld('Libellé', `<input name="txt" required autocomplete="off" placeholder="Hôtel" value="${esc(x ? x.txt : '')}">`)}${fld('Montant (€)', `<input type="number" name="montant" min="0" step="0.01" required inputmode="decimal" value="${x ? x.montant : ''}">`)}</div>
+  <button class="btn plein">${x ? 'Enregistrer' : 'Ajouter'}</button>${x ? `<button type="button" class="btn danger plein" data-act="voy-dep-del" data-id="${x.id}">Supprimer</button>` : ''}</form>` };
+};
 const voyAct = () => etat.voyages.find(x => x.id === voySel);
 // Retour : la date saisie si elle a été modifiée, sinon départ + (jours - 1) quand le nombre de jours est saisi
 const finVoyage = (f, ancien) => {
@@ -189,8 +195,8 @@ FORMS.voyage = f => {
   if (v.destination && !v.programme) setTimeout(() => lancerProg(v.id), 40);
 };
 FORMS['voy-item'] = f => { const v = voyAct(); if (v) v.checklist.push({ id: uid(), txt: f.txt.value.trim(), fait: false }); };
-FORMS['voy-etape'] = f => { const v = voyAct(); if (v) v.etapes.push({ id: uid(), date: f.date.value, txt: f.txt.value.trim() }); };
-FORMS['voy-dep'] = f => { const v = voyAct(); if (v) v.depenses.push({ id: uid(), txt: f.txt.value.trim(), montant: Number(f.montant.value) || 0 }); };
+FORMS['voy-etape'] = f => { const v = voyAct(); if (!v) return; const o = { date: f.date.value, txt: f.txt.value.trim() }, x = f.id.value && v.etapes.find(i => i.id === f.id.value); if (x) Object.assign(x, o); else v.etapes.push({ id: uid(), ...o }); };
+FORMS['voy-dep'] = f => { const v = voyAct(); if (!v) return; const o = { txt: f.txt.value.trim(), montant: Number(f.montant.value) || 0 }, x = f.id.value && v.depenses.find(i => i.id === f.id.value); if (x) Object.assign(x, o); else v.depenses.push({ id: uid(), ...o }); };
 // ---------- Programme proposé (Claude via la capacité « sample », sinon modèle générique) ----------
 const progEnCours = {};
 const nbJoursVoyage = vy => Math.max(1, Math.min(21, diffJours(vy.debut, vy.fin) + 1));
