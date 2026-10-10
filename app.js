@@ -6,7 +6,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 // ---------- Données ----------
-const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], accueil: {}, sportProfils: [], sportPlan: [], sportSeances: [], sportProg: [], epargne: [] });
+const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], menuVal: [], accueil: {}, sportProfils: [], sportPlan: [], sportSeances: [], sportProg: [], epargne: [] });
 let etat = charger();
 
 function charger() {
@@ -112,14 +112,17 @@ function parseCourse(t) {
   if (m) return [m[1].trim(), Number(m[2])];
   return [t, 1];
 }
-function ajouterCourse(nom, qte) {
+function ajouterCourseDetail(nom, qte, pour) {
   const k = cle(nom), ex = etat.courses.find(c => !c.fait && cle(c.nom) === k);
   const f = etat.freq[k] || { nom, n: 0 };
   etat.freq[k] = { nom: f.nom, n: f.n + 1 };
-  if (ex) { ex.qte = (ex.qte || 1) + qte; return 'maj'; }
-  etat.courses.unshift({ id: uid(), nom, qte, rayon: rayonDe(nom), fait: false });
-  return 'new';
+  if (ex) { ex.qte = (ex.qte || 1) + qte; return { etat: 'maj', id: ex.id }; }
+  const c = { id: uid(), nom, qte, rayon: rayonDe(nom), fait: false };
+  if (pour) c.pour = pour;
+  etat.courses.unshift(c);
+  return { etat: 'new', id: c.id };
 }
+const ajouterCourse = (nom, qte, pour) => ajouterCourseDetail(nom, qte, pour).etat;
 
 // ---------- Icônes ----------
 const ICONES = {
@@ -193,7 +196,7 @@ const VUES = {
     const dans = new Set(aAcheter.map(c => cle(c.nom)));
     const hab = Object.entries(etat.freq).filter(([k, v]) => v.n >= 2 && !dans.has(k)).sort((a, b) => b[1].n - a[1].n).slice(0, 8);
     const parRayon = RAYONS_ORDRE.map(r => [r, aAcheter.filter(c => (c.rayon || rayonDe(c.nom)) === r)]).filter(([, l]) => l.length);
-    const ligne = c => `<li class="rang ${c.fait ? 'fait' : ''}"><label class="rang-main"><input type="checkbox" class="coche" data-act="course-fait" data-id="${c.id}"${c.fait ? ' checked' : ''}><span class="rang-txt">${esc(c.nom)}</span></label>
+    const ligne = c => `<li class="rang ${c.fait ? 'fait' : ''}"><label class="rang-main"><input type="checkbox" class="coche" data-act="course-fait" data-id="${c.id}"${c.fait ? ' checked' : ''}><span class="rang-txt">${esc(c.nom)}${c.pour ? `<small>pour ${esc(c.pour)}</small>` : ''}</span></label>
       ${c.qte > 1 ? `<span class="pill pri">×${c.qte}</span>` : ''}
       <button class="icone" data-act="course-del" data-id="${c.id}" aria-label="Supprimer ${esc(c.nom)}">${ico('x', 18)}</button></li>`;
     return `

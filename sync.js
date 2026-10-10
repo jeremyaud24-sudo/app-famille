@@ -3,7 +3,7 @@
 // Partagé : membres, courses, tâches, événements, repas, recettes, carnet, voyages, sport (profils, plans, séances).
 // Jamais envoyé : bourse, prêts, budget, patrimoine, cadeaux, membre actif (restent sur l'appareil).
 
-const SYNC_COLLS = { membres: ['f_membres', 'asc'], taches: ['f_taches', 'asc'], events: ['f_events', 'asc'], courses: ['f_courses', 'desc'], repas: ['f_repas', 'asc'], recettes: ['f_recettes', 'asc'], carnet: ['f_carnet', 'asc'], voyages: ['f_voyages', 'asc'], sportProfils: ['f_sport_profils', 'asc'], sportPlan: ['f_sport_plan', 'asc'], sportSeances: ['f_sport_seances', 'asc'], sportProg: ['f_sport_prog', 'asc'] };
+const SYNC_COLLS = { membres: ['f_membres', 'asc'], taches: ['f_taches', 'asc'], events: ['f_events', 'asc'], courses: ['f_courses', 'desc'], repas: ['f_repas', 'asc'], recettes: ['f_recettes', 'asc'], carnet: ['f_carnet', 'asc'], voyages: ['f_voyages', 'asc'], sportProfils: ['f_sport_profils', 'asc'], sportPlan: ['f_sport_plan', 'asc'], sportSeances: ['f_sport_seances', 'asc'], sportProg: ['f_sport_prog', 'asc'], menuVal: ['f_menu_val', 'asc'] };
 
 const stable = v => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x)
   ? Object.fromEntries(Object.entries(x).filter(([, y]) => y !== undefined).sort(([a], [b]) => (a < b ? -1 : 1))) : x));

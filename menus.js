@@ -83,46 +83,71 @@ function enregistrerRecette(r) {
   return x;
 }
 
+// ---------- Validation : un repas validé est planifié et ses ingrédients passent dans la liste de courses ----------
+const idMenu = (lun, i) => `${lun}:${i}`;
+const valideDe = (lun, i) => (etat.menuVal || []).find(x => x.id === idMenu(lun, i));
+function validerRepas(lun, i, r, date) {
+  if (valideDe(lun, i)) return 0;
+  const ajouts = r.ingredients.map(ing => { const d = ajouterCourseDetail(ing, 1, r.nom); return { id: d.id, nouveau: d.etat === 'new' }; });
+  enregistrerRecette(r);
+  etat.repas[date] = { ...etat.repas[date], soir: r.nom };
+  (etat.menuVal = etat.menuVal || []).push({ id: idMenu(lun, i), rid: r.id, date, ajouts });
+  return r.ingredients.length;
+}
+function annulerRepas(lun, i) {
+  const v = valideDe(lun, i);
+  if (!v) return;
+  v.ajouts.forEach(a => {
+    const c = etat.courses.find(x => x.id === a.id);
+    if (!c || c.fait) return;
+    if (a.nouveau) etat.courses = etat.courses.filter(x => x.id !== a.id); else if ((c.qte || 1) > 1) c.qte--;
+  });
+  const r = CAT_PAR_ID[v.rid];
+  if (r && etat.repas[v.date] && etat.repas[v.date].soir === r.nom) etat.repas[v.date] = { ...etat.repas[v.date], soir: '' };
+  etat.menuVal = etat.menuVal.filter(x => x !== v);
+}
+// Annulation globale : la fonction restaure l'état d'avant l'action
+const avecAnnuler = (msg, avant) => info(msg, { label: 'Annuler', fn: () => { etat = { ...defaut(), ...JSON.parse(avant) }; sauver(); rendre(); } });
+
 // ---------- Interface ----------
 function ideesRepas() {
-  const lun = iso(semaineAff), menu = menuSemaine(lun);
-  return `<section class="carte"><h2>Idées de la semaine</h2>
-    <p class="mut">Sept dîners qui changent chaque semaine, avec la recette complète. Ils tiennent compte de votre sport et évitent les plats des deux semaines précédentes.</p>
-    <ul class="liste">${menu.map((x, i) => `<li><button class="rang" data-act="ouvrir" data-sheet="idee" data-id="${x.r.id}" data-date="${x.date}" data-i="${i}" data-lun="${lun}">
-      <span class="heure" style="flex-basis:46px">${JOURS[i]}</span>
-      <span class="rang-txt"><b>${esc(x.r.nom)}</b><small>${x.r.temps} min · ${x.r.tags.slice(0, 2).map(t => TAG_NOM[t] || t).join(', ')}${x.raison ? ' · ' + esc(x.raison) : ''}</small></span>
-      ${etat.repas[x.date] && etat.repas[x.date].soir === x.r.nom ? '<span class="pill ok">Planifié</span>' : ''}</button></li>`).join('')}</ul>
-    <div class="rangee"><button class="btn" data-act="idees-plan">Planifier les dîners libres</button><button class="btn sec" data-act="idees-courses">Ajouter tous les ingrédients aux courses</button></div></section>`;
+  const lun = iso(semaineAff), menu = menuSemaine(lun), nbVal = menu.filter((x, i) => valideDe(lun, i)).length;
+  return `<section class="carte"><div class="carte-tete"><h2>Idées de la semaine</h2><span class="pill ${nbVal === 7 ? 'ok' : 'pri'}">${nbVal}/7 validés</span></div>
+    <p class="mut">Sept dîners qui changent chaque semaine. Touchez un repas pour voir la recette ; « Valider » le planifie et envoie ses ingrédients dans la liste de courses.</p>
+    <ul class="liste">${menu.map((x, i) => {
+      const v = valideDe(lun, i), r = v ? (CAT_PAR_ID[v.rid] || x.r) : x.r;
+      return `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="idee" data-id="${r.id}" data-date="${x.date}" data-i="${i}" data-lun="${lun}">
+        <span class="heure" style="flex-basis:40px">${JOURS[i]}</span>
+        <span class="rang-txt"><b>${esc(r.nom)}</b><small>${r.temps} min · ${r.tags.slice(0, 2).map(t => TAG_NOM[t] || t).join(', ')}${x.raison ? ' · ' + esc(x.raison) : ''}</small></span></button>
+        ${v ? `<button class="pill ok" data-act="idee-annuler" data-lun="${lun}" data-i="${i}" aria-label="Annuler la validation">✓ Validé</button>` : `<button class="btn" style="min-height:38px;padding:0 14px" data-act="idee-valider" data-lun="${lun}" data-i="${i}">Valider</button>`}</li>`; }).join('')}</ul>
+    <div class="rangee"><button class="btn" data-act="idees-valider"${nbVal === 7 ? ' disabled' : ''}>Valider toute la semaine</button>${nbVal ? '<button class="btn sec" data-act="idees-annuler">Annuler les validations</button>' : ''}</div></section>`;
 }
 SHEETS.idee = d => {
+  const lun = d.lun, i = Number(d.i), v = lun != null && d.i != null ? valideDe(lun, i) : null;
   const r = CAT_PAR_ID[d.id];
   if (!r) return { titre: 'Recette', corps: '<p>Recette introuvable.</p>' };
-  const plan = etat.repas[d.date] && etat.repas[d.date].soir === r.nom;
+  const h = t => `<h3 class="mut" style="margin:0;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em">${t}</h3>`;
   return { titre: r.nom, corps: `<p class="mut">${r.portions} portions · ${r.temps} min${d.date ? ' · ' + fmtLong(d.date) : ''}</p>
-    <h3 class="mut" style="margin:0;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em">Ingrédients</h3>
-    <ul class="liste">${r.ingredients.map(i => `<li class="rang" style="min-height:38px"><span class="rang-txt">${esc(i)}</span></li>`).join('')}</ul>
-    <h3 class="mut" style="margin:0;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em">Préparation</h3><p style="color:var(--ink)">${esc(r.etapes)}</p>
+    ${h('Ingrédients')}<ul class="liste">${r.ingredients.map(x => `<li class="rang" style="min-height:38px"><span class="rang-txt">${esc(x)}</span></li>`).join('')}</ul>
+    ${h('Préparation')}<p style="color:var(--ink)">${esc(r.etapes)}</p>
     <small>Quantités pour 4 personnes : ajustez selon l’appétit. Pour un bébé, adaptez textures et aliments à son âge, avec l’avis du pédiatre.</small>
-    <div class="rangee">${d.date ? `<button class="btn"${plan ? ' disabled' : ''} data-act="idee-plan" data-id="${r.id}" data-date="${d.date}">${plan ? 'Déjà planifié' : 'Planifier ce soir-là'}</button>` : ''}<button class="btn sec" data-act="idee-courses" data-id="${r.id}">Ajouter aux courses</button></div>
-    <div class="rangee"><button class="btn sec" data-act="idee-save" data-id="${r.id}">Ajouter à mes recettes</button>${d.date ? `<button class="btn sec" data-act="idee-alt" data-lun="${d.lun}" data-i="${d.i}">Proposer autre chose</button>` : ''}</div>` };
+    ${d.date ? (v ? `<button class="btn sec plein" data-act="idee-annuler" data-lun="${lun}" data-i="${i}">Annuler la validation (retire les ingrédients ajoutés)</button>`
+      : `<button class="btn plein" data-act="idee-valider" data-lun="${lun}" data-i="${i}">Valider : planifier et ajouter les ingrédients aux courses</button>`) : ''}
+    <div class="rangee"><button class="btn sec" data-act="idee-ouvrir" data-id="${r.id}">Ouvrir dans mes recettes</button>${d.date && !v ? `<button class="btn sec" data-act="idee-alt" data-lun="${lun}" data-i="${i}">Proposer autre chose</button>` : ''}</div>` };
 };
-ACTIONS['idee-plan'] = el => {
-  const r = CAT_PAR_ID[el.dataset.id];
-  enregistrerRecette(r);
-  etat.repas[el.dataset.date] = { ...etat.repas[el.dataset.date], soir: r.nom };
+ACTIONS['idee-valider'] = el => {
+  const lun = el.dataset.lun, i = Number(el.dataset.i), x = menuSemaine(lun)[i], avant = JSON.stringify(etat);
+  const n = validerRepas(lun, i, x.r, x.date);
   fermerFeuille();
-  info(`« ${r.nom} » planifié le ${fmtDate(el.dataset.date)}.`);
+  avecAnnuler(`« ${x.r.nom} » validé : ${n} ingrédient${pl(n)} ajouté${pl(n)} aux courses.`, avant);
 };
-ACTIONS['idee-save'] = el => { enregistrerRecette(CAT_PAR_ID[el.dataset.id]); fermerFeuille(); info('Ajoutée à vos recettes.'); };
-ACTIONS['idee-courses'] = el => { const r = CAT_PAR_ID[el.dataset.id]; r.ingredients.forEach(i => ajouterCourse(i, 1)); fermerFeuille(); info(`${r.ingredients.length} ingrédients ajoutés aux courses.`); };
+ACTIONS['idee-annuler'] = el => { annulerRepas(el.dataset.lun, Number(el.dataset.i)); fermerFeuille(); info('Validation annulée, ingrédients retirés des courses.'); };
+ACTIONS['idees-valider'] = () => {
+  const lun = iso(semaineAff), menu = menuSemaine(lun), avant = JSON.stringify(etat);
+  let n = 0, k = 0;
+  menu.forEach((x, i) => { if (!valideDe(lun, i)) { n += validerRepas(lun, i, x.r, x.date); k++; } });
+  avecAnnuler(`${k} repas validé${pl(k)} : ${n} ingrédient${pl(n)} ajouté${pl(n)} aux courses.`, avant);
+};
+ACTIONS['idees-annuler'] = () => { const lun = iso(semaineAff); for (let i = 0; i < 7; i++) annulerRepas(lun, i); info('Validations annulées, ingrédients retirés des courses.'); };
+ACTIONS['idee-ouvrir'] = el => { const r = enregistrerRecette(CAT_PAR_ID[el.dataset.id]); sauver(); aller('recettes'); ouvrirFeuille('recette', { id: r.id }); };
 ACTIONS['idee-alt'] = el => { etat.menuAlt = etat.menuAlt || {}; const k = `${el.dataset.lun}:${el.dataset.i}`; etat.menuAlt[k] = (etat.menuAlt[k] || 0) + 1; fermerFeuille(); info('Nouvelle idée proposée.'); };
-ACTIONS['idees-plan'] = () => {
-  const menu = menuSemaine(iso(semaineAff)); let n = 0;
-  menu.forEach(x => { const e = etat.repas[x.date] || {}; if (!e.soir) { enregistrerRecette(x.r); etat.repas[x.date] = { ...e, soir: x.r.nom }; n++; } });
-  info(n ? `${n} dîner${pl(n)} planifié${pl(n)}.` : 'Tous les dîners sont déjà planifiés.');
-};
-ACTIONS['idees-courses'] = () => {
-  const menu = menuSemaine(iso(semaineAff)); let n = 0;
-  menu.forEach(x => x.r.ingredients.forEach(i => { if (!etat.courses.some(c => !c.fait && cle(c.nom) === cle(i))) { ajouterCourse(i, 1); n++; } }));
-  info(`${n} ingrédient${pl(n)} ajouté${pl(n)} aux courses.`);
-};
