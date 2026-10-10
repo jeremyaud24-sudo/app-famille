@@ -107,6 +107,51 @@ function conseils(S) {
   return out;
 }
 
+
+// ---------- Où investir ensuite (pistes d'allocation, pas de titre désigné) ----------
+const SECTEURS_COMPLEMENT = ['Santé', 'Consommation', 'Services publics', 'Finance', 'Industrie', 'Énergie', 'Matériaux', 'Télécoms', 'Immobilier', 'Technologie'];
+function prochainInvest(S) {
+  const c = cfg(), { ps, total } = S, out = [];
+  const base = total + (c.versement > 0 ? c.versement : 0);
+  if (!ps.length) return out;
+  const etf = ps.filter(p => p.secteur === 'Diversifié');
+  const valEtf = somme(etf, p => p.val);
+
+  const gros = ps.filter(p => p.secteur !== 'Diversifié' && p.poids > 25);
+  if (gros.length) out.push(['À ne pas renforcer', `${gros.map(p => p.ticker).join(', ')} dépasse${gros.length > 1 ? 'nt' : ''} 25 % du portefeuille. Orientez vos prochains versements vers d'autres supports plutôt que d'augmenter cette concentration.`]);
+
+  if (valEtf / (base || 1) < 0.4) {
+    const manque = Math.max(0, 0.5 * base - valEtf);
+    out.push(['1. Un socle diversifié', `Un ETF large (monde, ou monde + Europe) répartit le risque sur des centaines de sociétés pour 0,1 à 0,4 % de frais par an. Un socle d'environ la moitié du portefeuille représente ${eur(manque)} à ajouter.${c.versement > 0 ? ` Votre versement de ${eur(c.versement)} irait naturellement ici.` : ' Renseignez un versement prévu dans « Rééquilibrage » pour affiner.'} À vérifier avant achat : éligibilité à votre enveloppe (PEA ou CTO), frais, encours, méthode de réplication.`]);
+  }
+
+  const indiv = ps.filter(p => p.secteur !== 'Diversifié'), totI = somme(indiv, p => p.val);
+  if (totI) {
+    const poidsS = Object.fromEntries(groupe(indiv, 'secteur').map(([k, v]) => [k, v / totI * 100]));
+    const dominant = Math.max(0, ...Object.values(poidsS));
+    const vides = SECTEURS_COMPLEMENT.filter(s => (poidsS[s] || 0) < 5).slice(0, 3);
+    if (vides.length && (dominant > 35 || Object.keys(poidsS).length <= 3))
+      out.push(['2. Des secteurs qui manquent', `Vos lignes directes sont concentrées. Pour rééquilibrer, explorez d'abord des entreprises dans : ${vides.join(', ')}. Ces secteurs réagissent souvent différemment du reste de votre portefeuille.`]);
+  }
+
+  const zonesPresentes = new Set(ps.filter(p => p.zone !== 'Monde' || p.secteur !== 'Diversifié').map(p => p.zone));
+  const absentes = ['Europe', 'USA', 'Émergents', 'Asie-Pacifique'].filter(z => !zonesPresentes.has(z) && !(etf.some(p => p.zone === 'Monde')));
+  if (absentes.length) out.push(['3. Des zones absentes', `Aucune exposition à : ${absentes.join(', ')}. Un ETF dédié est plus simple et moins risqué qu'une action isolée pour couvrir une zone entière.`]);
+
+  out.push(['Taille d\'une nouvelle ligne', `Sur la base de ${eur(base)} : environ ${eur(base * 0.05)} (5 %) pour une première position, ${eur(base * 0.1)} (10 %) au maximum.${base < 1000 ? ' Avec un petit capital, mieux vaut peu de lignes plutôt que de nombreuses positions minuscules, et peu d\'achats si votre courtier prélève des frais fixes.' : ''}`]);
+  return out;
+}
+const GRILLE = [
+  'Je sais expliquer en deux phrases comment l’entreprise gagne de l’argent.',
+  'Son chiffre d’affaires et ses bénéfices progressent sur 5 à 10 ans.',
+  'Sa dette reste raisonnable par rapport à ses bénéfices.',
+  'Elle a un avantage durable (marque, prix, technologie, coûts) face à ses concurrents.',
+  'Le prix payé n’est pas démesuré par rapport aux bénéfices et au secteur (PER, rendement du flux de trésorerie).',
+  'Je supporterais de voir la ligne perdre 50 % sans vendre.',
+  'Elle ne ferait pas dépasser 10 % du portefeuille.',
+  'Elle apporte un secteur ou une zone qui me manque.',
+];
+
 // ---------- Rendu ----------
 const barres = (liste, total) => liste.map(([k, v]) => `<div style="margin-bottom:6px"><div class="bar" style="margin:0"><span>${esc(k)}</span><span>${pc(total ? v / total * 100 : 0)} · ${eur(v)}</span></div><div class="jauge"><i style="width:${total ? v / total * 100 : 0}%;background:var(--pri)"></i></div></div>`).join('');
 const opts = (liste, sel) => liste.map(o => `<option${o === sel ? ' selected' : ''}>${o}</option>`).join('');
@@ -160,6 +205,13 @@ VUES.bourse = function () {
     <div class="card"><h2>🧭 Analyse et conseils</h2>
       <ul class="list">${insights.map(([n, t]) => `<li style="align-items:flex-start"><span>${ico[n]}</span><div class="grow">${esc(t)}</div></li>`).join('')}</ul>
       <p class="mut">Informations générales issues de règles courantes de gestion de portefeuille. Ce n'est pas un conseil en investissement personnalisé : un placement comporte un risque de perte en capital.</p>
+    </div>
+        <div class="card"><h2>🎯 Où investir ensuite</h2>
+      <ul class="list">${prochainInvest(S).map(([t, d]) => `<li style="align-items:flex-start"><div class="grow"><b>${esc(t)}</b><br><span class="mut">${esc(d)}</span></div></li>`).join('') || '<li class="vide">Ajoutez vos lignes pour obtenir des pistes.</li>'}</ul>
+      <details style="margin-top:8px"><summary><b>Grille pour choisir une action</b></summary>
+        <ul class="list">${GRILLE.map(g => `<li style="align-items:flex-start"><span>☐</span><div class="grow">${esc(g)}</div></li>`).join('')}</ul>
+        <p class="mut">Si vous ne pouvez pas cocher la plupart des cases, l'ETF reste souvent le choix le plus sûr.</p></details>
+      <p class="mut">L'application ne désigne volontairement aucun titre à acheter : personne ne prédit les cours, et une recommandation individuelle suppose de connaître votre situation. Ces pistes indiquent ce qui manque à votre portefeuille.</p>
     </div>
     <div class="card"><h2>📊 Répartition</h2>
       ${ps.length ? `<h3 class="mut">Par support</h3>${barres(trie.map(p => [p.ticker, p.val]), total)}
