@@ -260,9 +260,9 @@ const VUES = {
   budget() {
     const [an, mo] = moisBudget.split('-').map(Number);
     const tx = etat.tx.filter(t => t.date.startsWith(moisBudget)).sort((a, b) => b.date.localeCompare(a.date));
-    const bilan = ym => { const l = etat.tx.filter(t => t.date.startsWith(ym)); return [l.filter(t => t.montant > 0).reduce((s, t) => s + t.montant, 0), -l.filter(t => t.montant < 0).reduce((s, t) => s + t.montant, 0)]; };
+    const bilan = ym => { const l = etat.tx.filter(t => t.date.startsWith(ym) && !t.epargne); return [l.filter(t => t.montant > 0).reduce((s, t) => s + t.montant, 0), -l.filter(t => t.montant < 0).reduce((s, t) => s + t.montant, 0)]; };
     const [rev, dep] = bilan(moisBudget);
-    const parCat = c => -tx.filter(t => t.cat === c && t.montant < 0).reduce((s, t) => s + t.montant, 0);
+    const parCat = c => -tx.filter(t => t.cat === c && t.montant < 0 && !t.epargne).reduce((s, t) => s + t.montant, 0);
     const six = Array.from({ length: 6 }, (_, i) => { const d = new Date(an, mo - 1 - (5 - i), 1), ym = iso(d).slice(0, 7), [r, p] = bilan(ym); return { label: `${MOIS[d.getMonth()]} ${d.getFullYear()}`, court: MOIS[d.getMonth()].slice(0, 3), v: [r, p] }; });
     const pfS = etat.pf.length && typeof pfCalc === 'function' ? pfCalc() : null;
     const bourse = (pfS ? pfS.total : 0) + (typeof cfg === 'function' ? cfg().liquidites || 0 : 0);
@@ -294,8 +294,8 @@ const VUES = {
           ${p ? `<div class="jauge"><i style="width:${pc}%;background:${v > p ? 'var(--bad)' : 'var(--ok)'}"></i></div>` : ''}
           <div class="bar"><small>Plafond mensuel</small><input type="number" min="0" step="10" class="plaf" data-plafond="${c}" value="${p || ''}" placeholder="€" aria-label="Plafond ${c}"></div></div>`; }).join('')}</section>
       <section class="carte"><h2>Opérations</h2><ul class="liste">
-        ${tx.map(t => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="tx" data-id="${t.id}" aria-label="Modifier ${esc(t.libelle)}"><span class="rang-txt">${esc(t.libelle)}<small>${fmtDate(t.date)} · ${esc(t.cat)}${t.rec ? ' · automatique' : ''}</small></span>
-          <b class="num" style="color:var(--${t.montant < 0 ? 'bad' : 'ok'})">${eur(t.montant)}</b></button>
+        ${tx.map(t => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="tx" data-id="${t.id}" aria-label="Modifier ${esc(t.libelle)}"><span class="rang-txt">${esc(t.libelle)}<small>${fmtDate(t.date)} · ${esc(t.cat)}${t.rec ? ' · automatique' : ''}${t.epargne ? ' · virement vers l’épargne' : ''}</small></span>
+          <b class="num" style="color:${t.epargne ? 'var(--mut)' : t.montant < 0 ? 'var(--bad)' : 'var(--ok)'}">${eur(t.montant)}</b></button>
           <button class="icone" data-act="tx-del" data-id="${t.id}" aria-label="Supprimer ${esc(t.libelle)}">${ico('x', 18)}</button></li>`).join('') || '<li class="vide">Aucune opération ce mois-ci.</li>'}</ul></section>
       <section class="carte"><div class="carte-tete"><h2>Opérations automatiques</h2><button class="lien" data-act="ouvrir" data-sheet="recurrent">Ajouter</button></div>
         <ul class="liste">${etat.recurrents.map(r => `<li class="rang ${r.actif === false ? 'fait' : ''}"><button class="rang-btn" data-act="ouvrir" data-sheet="recurrent" data-id="${r.id}" aria-label="Modifier ${esc(r.libelle)}"><span class="rang-txt">${esc(r.libelle)}<small>Le ${r.jour} de chaque mois · ${esc(r.cat)}${r.actif === false ? ' · suspendue' : ''}</small></span>
@@ -346,7 +346,7 @@ const SHEETS = {
     ${fld('Libellé', `<input name="libelle" required autocomplete="off" value="${esc(t ? t.libelle : '')}">`)}
     <div class="duo">${fld('Montant (€)', `<input type="number" name="montant" step="0.01" min="0" required inputmode="decimal" value="${t ? Math.abs(t.montant) : ''}">`)}
     ${fld('Date', `<input type="date" name="date" value="${t ? t.date : (moisBudget === aujourdhui().slice(0, 7) ? aujourdhui() : moisBudget + '-01')}" required>`)}</div>
-    ${fld('Catégorie', `<select name="cat"><option value="">Automatique</option>${NOMS_CATS.filter(c => c !== 'Revenus').map(c => `<option${t && t.cat === c ? ' selected' : ''}>${c}</option>`).join('')}</select>`)}
+    ${fld('Catégorie', `<select name="cat"><option value="">Automatique</option>${t && t.epargne ? '<option value="Épargne" selected>Épargne (virement)</option>' : ''}${NOMS_CATS.filter(c => c !== 'Revenus').map(c => `<option${t && t.cat === c ? ' selected' : ''}>${c}</option>`).join('')}</select>`)}
     <button class="btn plein">${t ? 'Enregistrer' : 'Ajouter'}</button></form>` };
   },
 };

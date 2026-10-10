@@ -28,7 +28,7 @@ function evenementsFinanciers(depuis, jusqua) {
 // Dépenses courantes par jour, estimées sur 90 jours (hors opérations marquées récurrentes)
 function depenseCourante() {
   const auj = aujourdhui(), lim = iso(ajouteJours(new Date(), -90));
-  const l = etat.tx.filter(t => !t.rec && t.montant < 0 && t.date >= lim && t.date <= auj);
+  const l = etat.tx.filter(t => !t.rec && !t.epargne && t.montant < 0 && t.date >= lim && t.date <= auj);
   if (!l.length) return 0;
   const premier = l.reduce((m, t) => (t.date < m ? t.date : m), auj);
   return -somme(l, t => t.montant) / Math.max(30, diffJours(premier, auj) + 1);
@@ -60,7 +60,7 @@ function alertesTreso() {
 }
 function alertesBudget() {
   const out = [], mois = aujourdhui().slice(0, 7), n = new Date(), jm = n.getDate(), nbJ = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate();
-  const tx = etat.tx.filter(t => t.date.startsWith(mois) && t.montant < 0);
+  const tx = etat.tx.filter(t => t.date.startsWith(mois) && t.montant < 0 && !t.epargne);
   Object.entries(etat.plafonds).filter(([, p]) => p > 0).forEach(([cat, p]) => {
     const l = tx.filter(t => t.cat === cat), v = -somme(l, t => t.montant);
     const fixe = -somme(l.filter(t => t.rec), t => t.montant), variable = v - fixe;
