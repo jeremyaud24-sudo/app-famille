@@ -77,6 +77,7 @@ function arrive(e, d) {
   if (!e.rec || d < e.date) return false;
   const a = parse(e.date), b = parse(d);
   if (e.rec === 'jour') return true;
+  if (e.rec === 'quinzaine') return diffJours(e.date, d) % 14 === 0;
   if (e.rec === 'semaine') return diffJours(e.date, d) % 7 === 0;
   if (e.rec === 'mois') return a.getDate() === b.getDate();
   if (e.rec === 'an') return a.getDate() === b.getDate() && a.getMonth() === b.getMonth();

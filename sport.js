@@ -31,9 +31,18 @@ const objectifHebdo = (m, p) => p.objHebdo || (categorie(m) === 'adulte' ? 150 :
 const seancesDe = id => etat.sportSeances.filter(s => s.membre === id);
 const planDe = id => etat.sportPlan.filter(s => s.membre === id);
 const progDe = id => (etat.sportProg || []).find(p => p.membre === id);
-// Séances prévues un jour donné : séances hebdomadaires récurrentes + séances du programme
+// Récurrence d'une séance prévue : ancien modèle (jour de la semaine) ou date de départ + fréquence
+const REC_SPORT = [['', 'Une seule fois'], ['semaine', 'Chaque semaine'], ['quinzaine', 'Toutes les 2 semaines'], ['jour', 'Chaque jour'], ['mois', 'Chaque mois']];
+const recSport = k => (REC_SPORT.find(r => r[0] === k) || REC_SPORT[0])[1];
+function itemPrevu(x, date) {
+  if (x.date == null) return x.jour === jourIdx(date); // ancien modèle : chaque semaine
+  if (x.fin && date > x.fin) return false;
+  return arrive({ date: x.date, rec: x.rec || '' }, date);
+}
+const prochainJour = idx => { for (let i = 0; i < 7; i++) { const d = iso(ajouteJours(new Date(), i)); if (jourIdx(d) === idx) return d; } return aujourdhui(); };
+// Séances prévues un jour donné : séances récurrentes du plan + séances du programme
 function prevuesLe(id, date) {
-  const l = planDe(id).filter(x => x.jour === jourIdx(date));
+  const l = planDe(id).filter(x => itemPrevu(x, date));
   (etat.sportProg || []).filter(p => p.membre === id).forEach(p => {
     const off = diffJours(p.debut, date), n = Math.floor(off / 7) + 1;
     const sem = p.semaines.find(w => w.n === n);
@@ -221,7 +230,8 @@ VUES.plansport = function () {
   const m = membreSport();
   if (!m) return videSport();
   const plan = planDe(m.id), auj = jourIdx(aujourdhui()), prog = progDe(m.id), lun = lundiIso();
-  const min = somme(plan, x => x.duree), charge = somme(plan, x => x.duree * x.rpe);
+  const semPrev = Array.from({ length: 7 }, (_, i) => prevuesLe(m.id, iso(ajouteJours(parse(lun), i)))).flat();
+  const min = somme(semPrev, x => x.duree), charge = somme(semPrev, x => x.duree * x.rpe);
   let carteProg = '';
   if (prog) {
     const n = Math.floor(diffJours(prog.debut, aujourdhui()) / 7) + 1, tot = prog.semaines.length, fin = iso(ajouteJours(parse(prog.debut), 7 * tot - 1));
@@ -237,12 +247,12 @@ VUES.plansport = function () {
   }
   return `${chipsSport()}
     ${carteProg}
-    <section class="carte"><div class="carte-tete"><h2>Séances de la semaine</h2><span class="pill pri">${plan.length} récurrente${pl(plan.length)}</span></div>
-      <p class="mut">${plan.length ? `Séances récurrentes : ${min} min par semaine · charge prévue ${pnum(charge)}` : 'Ajoutez des séances qui reviennent chaque semaine (renforcement, cours collectif…), ou partez d’un modèle.'}</p>
+    <section class="carte"><div class="carte-tete"><h2>Séances de la semaine</h2><span class="pill pri">${plan.length} dans le plan</span></div>
+      <p class="mut">${semPrev.length ? `Cette semaine : ${semPrev.length} séance${pl(semPrev.length)} prévue${pl(semPrev.length)} · ${min} min · charge prévue ${pnum(charge)}` : plan.length ? 'Aucune séance prévue cette semaine.' : 'Ajoutez des séances qui reviennent chaque semaine (renforcement, cours collectif…), ou partez d’un modèle.'}</p>
       <button class="btn sec" data-act="ouvrir" data-sheet="modele-plan">Partir d’un modèle</button></section>
     ${JOURS_L.map((j, i) => { const date = iso(ajouteJours(parse(lun), i)), l = prevuesLe(m.id, date); return `<section class="carte"${i === auj ? ' style="border-color:var(--pri)"' : ''}><div class="carte-tete"><h2>${j}${i === auj ? ' · aujourd’hui' : ''}</h2><button class="lien" data-act="ouvrir" data-sheet="plan-item" data-jour="${i}">Ajouter</button></div>
       ${l.length ? `<ul class="liste">${l.map(x => x.prog ? `<li class="rang" style="min-height:48px"><span class="rang-txt"><b>${esc(x.titre || nomSport(x.type))}</b><small>${nomSport(x.type)} · ${x.duree} min${x.estime ? ' (estimée)' : ''} · effort ${x.rpe}/10${x.note ? ' · ' + esc(x.note) : ''}</small></span><span class="pill">Programme</span></li>`
-        : `<li><button class="rang" data-act="ouvrir" data-sheet="plan-item" data-id="${x.id}"><span class="rang-txt"><b>${esc(x.titre || nomSport(x.type))}</b><small>${nomSport(x.type)} · ${x.duree} min · effort ${x.rpe}/10${x.note ? ' · ' + esc(x.note) : ''}</small></span></button></li>`).join('')}</ul>` : '<small>Repos</small>'}</section>`; }).join('')}`;
+        : `<li><button class="rang" data-act="ouvrir" data-sheet="plan-item" data-id="${x.id}"><span class="rang-txt"><b>${esc(x.titre || nomSport(x.type))}</b><small>${nomSport(x.type)} · ${x.duree} min · effort ${x.rpe}/10${x.note ? ' · ' + esc(x.note) : ''} · ↻ ${recSport(x.date == null ? 'semaine' : x.rec).toLowerCase()}</small></span></button></li>`).join('')}</ul>` : '<small>Repos</small>'}</section>`; }).join('')}`;
 };
 VUES.conseilssport = function () {
   const m = membreSport();
@@ -269,14 +279,18 @@ SHEETS.seance = d => {
     ${fld('Effort ressenti (1 à 10)', `<select name="rpe">${optRpe(Number(v('rpe', 5)))}</select>`)}
     ${fld('Titre (facultatif)', `<input name="titre" autocomplete="off" value="${esc(v('titre'))}" placeholder="Sortie longue">`)}
     <div class="duo">${fld('Distance (km)', `<input type="number" name="distance" min="0" step="0.1" inputmode="decimal" value="${s && s.distance ? s.distance : ''}">`)}${fld('Note', `<input name="note" autocomplete="off" value="${esc(s ? s.note : '')}">`)}</div>
+    ${!s && !pl_ ? `<div class="duo">${fld('Répéter cette séance', `<select name="rec">${REC_SPORT.filter(r => r[0] !== 'jour').map(([k, n]) => `<option value="${k}">${k ? n : 'Ne pas répéter'}</option>`).join('')}</select>`)}${fld('Jusqu’au (facultatif)', '<input type="date" name="fin">')}</div>
+    <small>Une séance répétée est ajoutée à votre plan : elle apparaîtra aux prochaines dates avec le bouton « Valider ».</small>` : ''}
     <label class="rang-main"><input type="checkbox" class="coche" name="douleur"${s && s.douleur ? ' checked' : ''}><span class="rang-txt">Douleur ou gêne pendant la séance<small>Utilisé pour adapter les conseils de récupération</small></span></label>
     <button class="btn plein">Enregistrer</button></form>` };
 };
 SHEETS['plan-item'] = d => {
   const x = d.id ? etat.sportPlan.find(i => i.id === d.id) : null;
+  const date = x ? (x.date || prochainJour(x.jour)) : d.jour != null ? prochainJour(Number(d.jour)) : aujourdhui();
   return { titre: x ? 'Modifier la séance prévue' : 'Séance prévue', corps: `<form class="formulaire" data-form="plan-item"><input type="hidden" name="id" value="${x ? x.id : ''}"><input type="hidden" name="membre" value="${x ? x.membre : sportM}">
-    <div class="duo">${fld('Jour', `<select name="jour">${JOURS_L.map((j, i) => `<option value="${i}"${i === Number(x ? x.jour : (d.jour ?? 0)) ? ' selected' : ''}>${j}</option>`).join('')}</select>`)}${fld('Sport', `<select name="type">${optSel(SPORTS, x ? x.type : 'course')}</select>`)}</div>
-    ${fld('Titre (facultatif)', `<input name="titre" autocomplete="off" value="${esc(x ? x.titre : '')}" placeholder="Fractionné 10 × 1 min">`)}
+    <div class="duo">${fld('Première séance', `<input type="date" name="date" value="${date}" required>`)}${fld('Répéter', `<select name="rec">${REC_SPORT.map(([k, n]) => `<option value="${k}"${k === (x ? (x.date == null ? 'semaine' : x.rec || '') : 'semaine') ? ' selected' : ''}>${n}</option>`).join('')}</select>`)}</div>
+    ${fld('Jusqu’au (facultatif)', `<input type="date" name="fin" value="${x && x.fin ? x.fin : ''}">`)}
+    <div class="duo">${fld('Sport', `<select name="type">${optSel(SPORTS, x ? x.type : 'course')}</select>`)}${fld('Titre (facultatif)', `<input name="titre" autocomplete="off" value="${esc(x ? x.titre : '')}" placeholder="Fractionné 10 × 1 min">`)}</div>
     <div class="duo">${fld('Durée (min)', `<input type="number" name="duree" min="1" max="600" required inputmode="numeric" value="${x ? x.duree : ''}">`)}${fld('Effort prévu (1 à 10)', `<select name="rpe">${optRpe(Number(x ? x.rpe : 5))}</select>`)}</div>
     ${fld('Note (facultatif)', `<input name="note" autocomplete="off" value="${esc(x ? x.note : '')}">`)}
     <button class="btn plein">Enregistrer</button>${x ? `<button type="button" class="btn danger plein" data-act="plan-item-del" data-id="${x.id}">Supprimer</button>` : ''}</form>` };
@@ -306,9 +320,13 @@ FORMS.seance = f => {
   const i = etat.sportSeances.findIndex(x => x.id === f.id.value);
   if (i >= 0) Object.assign(etat.sportSeances[i], o); else etat.sportSeances.push({ id: uid(), ...o });
   sportM = o.membre;
+  if (f.rec && f.rec.value && i < 0) { // récurrence : la séance rejoint le plan
+    const doublon = etat.sportPlan.some(x => x.membre === o.membre && x.type === o.type && (x.titre || '') === o.titre && x.date != null && x.rec === f.rec.value && jourIdx(x.date) === jourIdx(o.date));
+    if (!doublon) etat.sportPlan.push({ id: uid(), membre: o.membre, date: o.date, jour: jourIdx(o.date), rec: f.rec.value, fin: f.fin ? f.fin.value : '', type: o.type, titre: o.titre, duree: o.duree, rpe: o.rpe, note: o.note });
+  }
 };
 FORMS['plan-item'] = f => {
-  const o = { membre: f.membre.value, jour: Number(f.jour.value), type: f.type.value, titre: f.titre.value.trim(), duree: Number(f.duree.value) || 0, rpe: Number(f.rpe.value) || 5, note: f.note.value.trim() };
+  const o = { membre: f.membre.value, date: f.date.value, jour: jourIdx(f.date.value), rec: f.rec.value, fin: f.fin.value, type: f.type.value, titre: f.titre.value.trim(), duree: Number(f.duree.value) || 0, rpe: Number(f.rpe.value) || 5, note: f.note.value.trim() };
   const i = etat.sportPlan.findIndex(x => x.id === f.id.value);
   if (i >= 0) Object.assign(etat.sportPlan[i], o); else etat.sportPlan.push({ id: uid(), ...o });
 };
