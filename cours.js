@@ -62,13 +62,14 @@ function autoCours() {
 }
 function tuileCours(vieux) {
   const c = cfg();
-  if (!autoCoursActif()) return vieux ? `<button class="fin-tuile tuile-btn" data-act="ouvrir" data-sheet="cours"><span class="t-lbl">Cours à mettre à jour</span><span class="t-ligne"><b class="t-nom">${vieux} ligne${pl(vieux)}</b></span></button>` : '';
+  if (!autoCoursActif()) return `<section class="fin-tuile"><span class="t-lbl">Cours</span><span class="t-ligne"><b class="t-nom">${vieux ? vieux + ' ligne' + pl(vieux) + ' à mettre à jour' : 'À jour'}</b></span><button class="btn plein" data-act="cours-maj">Actualiser les cours maintenant</button><button class="btn sec plein" data-act="ouvrir" data-sheet="cours">Saisir à la main</button></section>`;
   const R = coursDernier;
   const etatTxt = coursEnCours ? 'Actualisation…' : coursErreur ? 'Échec de l’actualisation' : c.majAuto ? `Actualisé à ${heureCourte(c.majAuto)}${new Date(c.majAuto).toDateString() === new Date().toDateString() ? '' : ' · ' + fmtDate(iso(new Date(c.majAuto)))}` : 'Pas encore actualisé';
   const det = coursErreur ? (ERR_COURS[coursErreur] || 'Une erreur est survenue. Touchez pour réessayer.') : R && (R.suspects.length || R.ko.length)
     ? `${R.suspects.length ? 'Écart suspect, non appliqué : ' + R.suspects.map(esc).join(', ') + '. Vérifiez le symbole de la ligne. ' : ''}${R.ko.length ? 'Introuvable : ' + R.ko.map(esc).join(', ') + '.' : ''}`
     : `Cours Yahoo Finance, différés d’environ 15 min${c.majFerme ? ' · marchés fermés' : ''}. Touchez pour actualiser.`;
-  return `<button class="fin-tuile tuile-btn" data-act="cours-maj"${coursEnCours ? ' aria-busy="true"' : ''}><span class="t-lbl">Cours · mise à jour automatique</span><span class="t-ligne"><b class="t-nom">${etatTxt}</b></span><span class="t-bas">${det}</span></button>`;
+  return `<section class="fin-tuile"><span class="t-lbl">Cours · mise à jour automatique</span><span class="t-ligne"><b class="t-nom">${etatTxt}</b></span><span class="t-bas">${det}</span>
+    <button class="btn plein" data-act="cours-maj"${coursEnCours ? ' disabled aria-busy="true"' : ''}>${coursEnCours ? 'Actualisation…' : 'Actualiser les cours maintenant'}</button></section>`;
 }
 ACTIONS['cours-maj'] = () => { coursErreur = null; majCours(true); return 'vue'; };
 ACTIONS['cours-auto'] = el => { cfg().autoCours = el.checked; if (el.checked) { coursErreur = null; setTimeout(autoCours, 50); } };

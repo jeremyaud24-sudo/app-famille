@@ -332,7 +332,7 @@ function bSynthese() {
   const vieux = ps.filter(p => !p.maj || (Date.now() - parse(p.maj)) / 864e5 > 7).length;
   return `
     <div class="fin-tete">${envs.length > 1 ? `<label class="fin-select"><select data-benv aria-label="Compte">${`<option value="">Tous les comptes</option>` + envs.map(e => `<option${e === bEnv ? ' selected' : ''}>${esc(e)}</option>`).join('')}</select></label>` : '<span class="t-lbl" style="font-size:1.1rem">Portefeuille</span>'}${periodesHtml(bPer, 'bper')}</div>
-    <section class="fin-tuile grand"><span class="t-lbl">Valeur totale</span>
+    <section class="fin-tuile grand"><button class="rafraichir" data-act="cours-maj" aria-label="Actualiser les cours" title="Actualiser les cours"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.5-4M4 13a8 8 0 0 0 14.500 4M5 3v4h4M19 21v-4h-4"/></svg></button><span class="t-lbl">Valeur totale</span>
       <span class="t-ligne"><b class="t-val">${eur(total)}</b>${deltaFin(dV, eur(Math.abs(dV)))}</span>
       ${hist.length >= 2 ? sparkline(hist.map(h => h.valeur), { h: 110 }) : '<span class="t-bas">La courbe se construit chaque jour d’utilisation.</span>'}</section>
     <div class="fin-grille">
