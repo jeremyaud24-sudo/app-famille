@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#4f46e5">
+<title>App Famille</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <h1 id="titre">Accueil</h1>
+  <select id="membreActif" title="Membre actif" aria-label="Membre actif"></select>
+</header>
+<main id="vue"></main>
+<nav class="tabs" id="tabs">
+  <button data-vue="accueil"><span>🏠</span>Accueil</button>
+  <button data-vue="courses"><span>🛒</span>Courses</button>
+  <button data-vue="taches"><span>✅</span>Tâches</button>
+  <button data-vue="agenda"><span>📅</span>Agenda</button>
+  <button data-vue="repas"><span>🍽️</span>Repas</button>
+  <button data-vue="famille"><span>👨‍👩‍👧</span>Famille</button>
+</nav>
+<script src="app.js"></script>
+</body>
+</html>
