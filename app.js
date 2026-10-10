@@ -6,7 +6,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 // ---------- Données ----------
-const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {} });
+const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {} });
 let etat = charger();
 
 function charger() {
@@ -34,11 +34,29 @@ const optionsMembres = (sel, vide) =>
   etat.membres.map(m => `<option value="${m.id}"${m.id === sel ? ' selected' : ''}>${esc(m.nom)}</option>`).join('');
 
 // ---------- Navigation ----------
-const TITRES = { accueil: 'Accueil', courses: 'Courses', taches: 'Tâches', agenda: 'Agenda', repas: 'Repas', famille: 'Famille' };
+const TITRES = { accueil: 'Accueil', courses: 'Courses', taches: 'Tâches', agenda: 'Agenda', repas: 'Repas', budget: 'Budget', famille: 'Famille' };
 let vue = 'accueil';
 let jourSel = aujourdhui();
 let moisAff = new Date(); moisAff.setDate(1);
 let semaineAff = lundi(new Date());
+let moisBudget = iso(new Date()).slice(0, 7);
+
+const CATS = {
+  'Revenus': ['salaire', 'virement recu', 'caf', 'remboursement'],
+  'Courses': ['carrefour', 'leclerc', 'auchan', 'lidl', 'intermarche', 'monoprix', 'franprix', 'aldi', 'picard'],
+  'Logement': ['loyer', 'edf', 'engie', 'eau', 'assurance hab', 'internet', 'free', 'orange', 'sfr', 'bouygues'],
+  'Transport': ['sncf', 'ratp', 'navigo', 'essence', 'total', 'esso', 'uber', 'peage', 'parking'],
+  'Santé': ['pharmacie', 'docteur', 'medecin', 'mutuelle', 'dentiste'],
+  'Loisirs': ['netflix', 'spotify', 'cinema', 'restaurant', 'resto', 'amazon', 'fnac', 'decathlon'],
+  'Enfants': ['ecole', 'cantine', 'creche', 'peri', 'jouet'],
+  'Autre': [],
+};
+const NOMS_CATS = Object.keys(CATS);
+const devine = lib => {
+  const l = lib.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return NOMS_CATS.find(c => CATS[c].some(k => l.includes(k))) || 'Autre';
+};
+const eur = n => (Math.abs(n) < 0.005 ? 0 : n).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
 
 function aller(v) { vue = v; rendre(); window.scrollTo(0, 0); }
 
@@ -163,6 +181,41 @@ const VUES = {
       <button class="btn sec" data-act="repas-courses">Ajouter les plats de la semaine aux courses</button>`;
   },
 
+  budget() {
+    const [an, mo] = moisBudget.split('-').map(Number);
+    const tx = etat.tx.filter(t => t.date.startsWith(moisBudget)).sort((a, b) => b.date.localeCompare(a.date));
+    const rev = tx.filter(t => t.montant > 0).reduce((s, t) => s + t.montant, 0);
+    const dep = -tx.filter(t => t.montant < 0).reduce((s, t) => s + t.montant, 0);
+    const parCat = c => -tx.filter(t => t.cat === c && t.montant < 0).reduce((s, t) => s + t.montant, 0);
+    return `
+      <div class="bar"><button class="btn sec" data-act="mois-budget" data-n="-1">‹</button><b>${MOIS[mo - 1]} ${an}</b><button class="btn sec" data-act="mois-budget" data-n="1">›</button></div>
+      <div class="card"><div class="bar"><span>Revenus</span><b style="color:var(--ok)">${eur(rev)}</b></div>
+        <div class="bar"><span>Dépenses</span><b style="color:var(--ko)">${eur(dep)}</b></div>
+        <div class="bar"><span>Solde</span><b class="score">${eur(rev - dep)}</b></div></div>
+      <div class="card"><h2>Par catégorie</h2>
+        ${NOMS_CATS.filter(c => c !== 'Revenus').map(c => { const v = parCat(c), p = etat.plafonds[c] || 0, pc = p ? Math.min(100, v / p * 100) : 0;
+          return `<div style="margin-bottom:10px"><div class="bar" style="margin:0"><span>${c}</span><span>${eur(v)}${p ? ' / ' : ''}<input type="number" min="0" step="10" class="plaf" data-plafond="${c}" value="${p || ''}" placeholder="plafond €"></span></div>
+          ${p ? `<div class="jauge"><i style="width:${pc}%;background:${v > p ? 'var(--ko)' : 'var(--ok)'}"></i></div>` : ''}</div>`; }).join('')}
+      </div>
+      <form class="row" data-form="tx">
+        <input type="text" name="libelle" placeholder="Libellé…" required autocomplete="off">
+        <input type="number" name="montant" step="0.01" placeholder="Montant €" required style="width:110px">
+        <select name="type"><option value="-1">Dépense</option><option value="1">Revenu</option></select>
+        <input type="date" name="date" value="${moisBudget === aujourdhui().slice(0, 7) ? aujourdhui() : moisBudget + '-01'}" required>
+        <select name="cat">${NOMS_CATS.filter(c => c !== 'Revenus').map(c => `<option>${c}</option>`).join('')}</select>
+        <button class="btn">Ajouter</button>
+      </form>
+      <div class="card"><ul class="list">
+        ${tx.map(t => `<li><div class="grow">${esc(t.libelle)}<div class="mut">${fmtDate(t.date)} · ${esc(t.cat)}</div></div>
+          <b style="color:${t.montant < 0 ? 'var(--ko)' : 'var(--ok)'}">${eur(t.montant)}</b>
+          <button class="btn del" data-act="tx-del" data-id="${t.id}" aria-label="Supprimer">✕</button></li>`).join('') || '<li class="vide">Aucune opération ce mois-ci</li>'}
+      </ul></div>
+      <div class="card"><h2>📄 Importer un relevé bancaire (CSV)</h2>
+        <p class="mut">Téléchargez le relevé CSV depuis le site de votre banque : colonnes date, libellé, montant (ou débit/crédit). Les catégories sont devinées, doublons ignorés.</p>
+        <label class="btn" style="display:inline-block">Choisir un fichier CSV<input type="file" id="importCsv" accept=".csv,text/csv,text/plain" hidden></label>
+      </div>`;
+  },
+
   famille() {
     return `
       <form class="row" data-form="membre">
@@ -202,6 +255,12 @@ const ACTIONS = {
     etat.taches.forEach(t => { if (t.membre === id) t.membre = ''; if (t.par === id) t.par = null; });
     etat.events.forEach(e => { if (e.membre === id) e.membre = ''; });
   },
+  'mois-budget': el => {
+    const [y, m] = moisBudget.split('-').map(Number);
+    moisBudget = iso(new Date(y, m - 1 + Number(el.dataset.n), 1)).slice(0, 7);
+    return 'vue';
+  },
+  'tx-del': el => { etat.tx = etat.tx.filter(x => x.id !== el.dataset.id); },
   'jour': el => { jourSel = el.dataset.date; return 'vue'; },
   'mois': el => { moisAff = new Date(moisAff.getFullYear(), moisAff.getMonth() + Number(el.dataset.n), 1); return 'vue'; },
   'semaine': el => { semaineAff = ajouteJours(semaineAff, 7 * Number(el.dataset.n)); return 'vue'; },
@@ -231,6 +290,10 @@ const FORMS = {
   course: f => etat.courses.push({ id: uid(), nom: f.nom.value.trim(), fait: false }),
   tache: f => etat.taches.push({ id: uid(), titre: f.titre.value.trim(), membre: f.membre.value, points: Number(f.points.value) || 0, fait: false, par: null }),
   event: f => etat.events.push({ id: uid(), titre: f.titre.value.trim(), date: jourSel, heure: f.heure.value, membre: f.membre.value }),
+  tx: f => {
+    const m = Math.abs(Number(f.montant.value)) * Number(f.type.value);
+    etat.tx.push({ id: uid(), date: f.date.value, libelle: f.libelle.value.trim(), montant: m, cat: m > 0 ? 'Revenus' : f.cat.value });
+  },
   membre: f => {
     const m = { id: uid(), nom: f.nom.value.trim(), couleur: COULEURS[etat.membres.length % COULEURS.length], naissance: f.naissance.value };
     etat.membres.push(m);
@@ -250,7 +313,9 @@ document.addEventListener('change', e => {
     const k = t.dataset.repas;
     etat.repas[k] = { ...etat.repas[k], [t.dataset.slot]: t.value.trim() };
     sauver();
-  } else if (t.id === 'import') importer(t.files[0]);
+  } else if (t.dataset.plafond) { etat.plafonds[t.dataset.plafond] = Number(t.value) || 0; sauver(); rendre(); }
+  else if (t.id === 'importCsv') importerCsv(t.files[0]);
+  else if (t.id === 'import') importer(t.files[0]);
 });
 document.addEventListener('submit', e => {
   const f = e.target;
@@ -283,6 +348,63 @@ function importer(fichier) {
       sauver();
       rendre();
     } catch { alert('Fichier invalide.'); }
+  };
+  lecteur.readAsText(fichier);
+}
+
+// ---------- Import CSV ----------
+function decoupe(ligne, sep) {
+  const out = []; let cur = '', q = false;
+  for (const ch of ligne) {
+    if (ch === '"') q = !q;
+    else if (ch === sep && !q) { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out.map(x => x.trim());
+}
+const nombre = s => { const v = parseFloat(String(s).replace(/[\s\u00a0€]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.')); return isNaN(v) ? null : v; };
+function dateCsv(s) {
+  let m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+  if (m) return `${m[3].length === 2 ? '20' + m[3] : m[3]}-${pad(m[2])}-${pad(m[1])}`;
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? m[0] : null;
+}
+function importerCsv(fichier) {
+  if (!fichier) return;
+  const lecteur = new FileReader();
+  lecteur.onload = () => {
+    const lignes = lecteur.result.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
+    const sep = [';', '\t', ','].find(s => (lignes[0] || '').includes(s)) || ';';
+    const norm = x => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    let idx = lignes.findIndex(l => decoupe(l, sep).some(c => /date/.test(norm(c))));
+    if (idx < 0) idx = 0;
+    const ent = decoupe(lignes[idx], sep).map(norm);
+    const col = re => ent.findIndex(c => re.test(c));
+    const cD = Math.max(col(/date/), 0);
+    let cL = col(/libelle|label|description|intitule|detail|nom/); if (cL < 0) cL = 1;
+    const cM = col(/^montant|amount|somme/), cDeb = col(/debit/), cCre = col(/credit/);
+    const existants = new Set(etat.tx.map(t => `${t.date}|${t.libelle}|${t.montant}`));
+    let ajoutes = 0, ignores = 0;
+    for (const l of lignes.slice(idx + 1)) {
+      const c = decoupe(l, sep);
+      const date = dateCsv(c[cD] || '');
+      let montant = cM >= 0 ? nombre(c[cM] || '') : null;
+      if (montant === null && (cDeb >= 0 || cCre >= 0)) {
+        const d = nombre(c[cDeb] || ''), cr = nombre(c[cCre] || '');
+        montant = (cr || 0) - Math.abs(d || 0);
+        if (!d && !cr) montant = null;
+      }
+      const libelle = c[cL] || '';
+      if (!date || montant === null || !libelle) { ignores++; continue; }
+      const cle = `${date}|${libelle}|${montant}`;
+      if (existants.has(cle)) { ignores++; continue; }
+      existants.add(cle);
+      etat.tx.push({ id: uid(), date, libelle, montant, cat: montant > 0 ? 'Revenus' : devine(libelle) });
+      ajoutes++;
+    }
+    sauver(); rendre();
+    alert(`${ajoutes} opération(s) importée(s), ${ignores} ignorée(s) (doublons ou lignes illisibles).`);
   };
   lecteur.readAsText(fichier);
 }

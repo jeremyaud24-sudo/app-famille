@@ -38,3 +38,7 @@ li.fait .grow{text-decoration:line-through;color:var(--mut)}
 .repas table{width:100%;border-collapse:collapse}
 .repas input{width:100%}
 .score{font-size:1.6rem;font-weight:700;color:var(--pri)}
+.jauge{height:6px;background:var(--bd);border-radius:99px;overflow:hidden;margin-top:4px}
+.jauge i{display:block;height:100%}
+.plaf{width:90px;padding:2px 6px;font-size:.8rem}
+.tabs button{font-size:.65rem}
