@@ -2,6 +2,7 @@
 // Accueil personnalisable : chaque bloc peut être masqué ou déplacé (réglage propre à l'appareil).
 
 const BLOCS = {
+  meteo: ['Date, heure et météo', () => blocMeteo()],
   raccourcis: ['Raccourcis', () => `<div class="chips raccourcis" role="group" aria-label="Raccourcis">
     <button data-act="ouvrir" data-sheet="article">${ico('maison', 18)} Article</button>
     <button data-act="ouvrir" data-sheet="tache">${ico('planning', 18)} Tâche</button>
@@ -82,7 +83,7 @@ const BLOCS_ORDRE = Object.keys(BLOCS);
 function accueilCfg() {
   const c = etat.accueil = { ordre: [], masques: [], ...(etat.accueil || {}) };
   const manquants = BLOCS_ORDRE.filter(i => !c.ordre.includes(i));
-  c.ordre = [...(manquants.includes('raccourcis') ? ['raccourcis'] : []), ...c.ordre.filter(i => BLOCS_ORDRE.includes(i)), ...manquants.filter(i => i !== 'raccourcis')];
+  c.ordre = [...(manquants.includes('meteo') ? ['meteo'] : []), ...(manquants.includes('raccourcis') ? ['raccourcis'] : []), ...c.ordre.filter(i => BLOCS_ORDRE.includes(i)), ...manquants.filter(i => i !== 'raccourcis' && i !== 'meteo')];
   return c;
 }
 VUES.accueil = function () {

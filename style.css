@@ -344,3 +344,17 @@ h1,h2,h3{font-weight:700;letter-spacing:-.005em}
 .t-val,.sp-stats b,.big{font-weight:600}.hero-val{font-weight:600}
 .rafraichir{position:absolute;top:10px;right:10px;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surf2);color:var(--pri);display:grid;place-items:center;padding:0}
 .rafraichir:active{transform:rotate(180deg)}
+
+/* Date, heure et météo */
+.meteo{gap:8px}
+.mt-haut{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.mt-horloge{display:flex;flex-direction:column;min-width:0}
+.mt-heure{font:600 2.6rem/1 var(--f-disp);letter-spacing:-.02em;font-feature-settings:"lnum","tnum"}
+.mt-date{display:block;color:var(--mut);font-size:.95rem;margin-top:2px}.mt-date::first-letter{text-transform:uppercase}
+.mt-now{display:flex;align-items:center;gap:6px;color:var(--mut)}.mt-ico{display:grid;place-items:center}
+.mt-temp{font:600 2.3rem/1 var(--f-disp);color:var(--ink);font-feature-settings:"lnum"}
+.mt-lib{margin:0;font-weight:600}
+.mt-puces{display:flex;gap:6px;flex-wrap:wrap}.mt-puces span{background:var(--surf2);border-radius:99px;padding:3px 10px;font-size:.82rem;color:var(--ink)}
+.mt-jours{list-style:none;margin:0;padding:0;display:flex;gap:16px;color:var(--mut)}.mt-jours li{display:flex;align-items:center;gap:6px}.mt-jours b{color:var(--ink)}.mt-jours small{color:var(--mut)}
+.mt-conseil{margin:0;padding:8px 12px;border-radius:12px;background:var(--pri-soft);color:var(--ink);font-size:.9rem}
+.mt-pied{display:flex;align-items:center;gap:4px}.mt-pied small{flex:1;color:var(--mut)}

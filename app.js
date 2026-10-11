@@ -8,7 +8,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 // ---------- Données ----------
-const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], menuVal: [], menuRefus: [], accueil: {}, sportProfils: [], sportPlan: [], sportSeances: [], sportProg: [], epargne: [], sportParcours: [], parcoursDepart: '' });
+const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], menuVal: [], menuRefus: [], accueil: {}, sportProfils: [], sportPlan: [], sportSeances: [], sportProg: [], epargne: [], sportParcours: [], parcoursDepart: '', meteo: {} });
 let etat = charger();
 
 function charger() {
@@ -187,7 +187,7 @@ function rendre() {
   document.body.classList.toggle('fin', section === 'argent');
   document.body.classList.toggle('sp', section === 'sport');
   document.getElementById('titre').textContent = section === 'accueil' ? `Bonjour${actif ? ', ' + actif.nom : ''}` : S.titre;
-  document.getElementById('sousTitre').textContent = section === 'accueil' ? fmtLong(aujourdhui()) : '';
+  document.getElementById('sousTitre').textContent = section === 'accueil' && typeof accueilCfg === 'function' && accueilCfg().masques.includes('meteo') ? fmtLong(aujourdhui()) : '';
   document.getElementById('tabs').innerHTML = Object.keys(SECTIONS).filter(s => !SECTIONS[s].cache).map(s =>
     `<button data-goto="${s}"${s === section ? ' aria-current="page"' : ''}><span class="pastille">${ico(s)}</span>${NOMS_ONGLETS[s]}</button>`).join('');
   const nav = document.getElementById('sousNav');
