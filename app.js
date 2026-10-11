@@ -285,6 +285,7 @@ const VUES = {
           <button class="icone" data-act="membre-del" data-id="${m.id}" aria-label="Supprimer ${esc(m.nom)}">${ico('x', 18)}</button></li>`).join('')
           || `<li class="vide">Ajoutez les membres de la famille.<br><button class="btn sec" data-act="ouvrir" data-sheet="membre">Ajouter un membre</button></li>`}</ul></section>
       ${typeof syncCarte === 'function' ? syncCarte() : ''}
+      ${typeof blocNatif === 'function' ? blocNatif() : ''}
       <section class="carte"><h2>Sauvegarde</h2>
         <p class="mut">Les données restent sur cet appareil. Exportez-les pour les conserver ou les copier sur un autre appareil.</p>
         <div class="rangee"><button class="btn" data-act="export">Exporter</button><button class="btn sec" data-act="import-coller">Importer (coller)</button></div>

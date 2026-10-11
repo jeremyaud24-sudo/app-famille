@@ -1,0 +1,3 @@
+/* Ajustements propres à la coque iOS (plein écran sous la barre d'état) */
+html{padding-top:env(safe-area-inset-top,0px);background:var(--bg)}
+body{overscroll-behavior-y:none;-webkit-touch-callout:none}

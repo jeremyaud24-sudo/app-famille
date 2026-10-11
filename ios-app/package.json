@@ -1,0 +1,20 @@
+{
+  "name": "app-famille-ios",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Coque iOS (Capacitor) de l'application App Famille",
+  "scripts": {
+    "build:web": "node scripts/copy-web.mjs",
+    "sync": "npm run build:web && cap sync ios",
+    "ios": "npm run sync && cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@fontsource-variable/figtree": "^5.0.0",
+    "@fontsource-variable/fraunces": "^5.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0"
+  }
+}

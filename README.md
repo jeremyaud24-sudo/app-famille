@@ -36,3 +36,7 @@ Les données sont stockées dans le navigateur (`localStorage`). L'export JSON s
 python3 -m http.server 8000
 ```
 puis ouvrir http://localhost:8000 (le mode hors ligne et l'installation nécessitent http/https). Ouvrir `index.html` directement fonctionne aussi, sans service worker.
+
+## App iPhone
+
+Une coque iOS (Capacitor) est disponible dans `ios-app/` : voir `ios-app/README.md`.

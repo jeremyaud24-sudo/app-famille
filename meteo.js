@@ -79,7 +79,7 @@ function blocMeteo() {
 SHEETS['meteo-ville'] = () => ({ titre: 'Ville pour la météo', corps: `<form class="formulaire" data-form="meteo-ville"><input type="hidden" name="pos" value="">
   ${fld('Ville', `<input name="ville" required autocomplete="address-level2" value="${esc(meteoCfg().ville || '')}" placeholder="Lyon">`)}
   <button type="button" class="btn sec" data-act="geoloc-meteo">Me localiser</button><small id="geoMeteo">La localisation automatique n’est pas toujours autorisée dans cette fenêtre : saisissez alors votre ville.</small>
-  <small>La ville reste sur cet appareil. La météo est lue sur Open-Meteo (1 crédit Firecrawl par actualisation, toutes les 30 min environ).</small>
+  <small>La ville reste sur cet appareil. La météo est lue sur Open-Meteo${window.__NATIVE ? '' : ' (1 crédit Firecrawl par actualisation)'}, toutes les 30 min environ.</small>
   <button class="btn plein">Enregistrer</button></form>` });
 FORMS['meteo-ville'] = f => {
   const c = meteoCfg(), v = f.ville.value.trim(), pos = f.pos.value;

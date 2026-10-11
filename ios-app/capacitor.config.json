@@ -1,0 +1,9 @@
+{
+  "appId": "fr.famille.app",
+  "appName": "App Famille",
+  "webDir": "www",
+  "ios": { "contentInset": "never", "backgroundColor": "#f6efe4" },
+  "plugins": {
+    "CapacitorHttp": { "enabled": true }
+  }
+}

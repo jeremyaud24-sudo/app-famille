@@ -78,9 +78,9 @@ function reglageCours() {
   return `<section class="carte"><h2>Cours automatiques</h2>
     <label class="rang-main"><input type="checkbox" class="coche" data-act="cours-auto"${autoCoursActif() ? ' checked' : ''}><span class="rang-txt">Actualiser les cours automatiquement<small>Toutes les 30 min marché ouvert, 6 h marché fermé, à l’ouverture de l’app</small></span></label>
     <div class="kv"><span>Dernière actualisation</span><b>${c.majAuto ? `${fmtDate(iso(new Date(c.majAuto)))} ${heureCourte(c.majAuto)}` : 'jamais'}</b></div>
-    <div class="kv"><span>Coût par actualisation</span><b>${5 * (new Set(etat.pf.map(symYahoo)).size + 1)} crédits Firecrawl</b></div>
+    <div class="kv"><span>Coût par actualisation</span><b>${window.__NATIVE ? 'gratuit' : 5 * (new Set(etat.pf.map(symYahoo)).size + 1) + ' crédits Firecrawl'}</b></div>
     <button class="btn sec plein" data-act="cours-maj">Actualiser maintenant</button>
-    <small>Source : Yahoo Finance via votre connecteur Firecrawl (5 crédits par ligne et 5 pour le taux de change). Les cours en dollars sont convertis en euros. Un écart de plus de 35 % avec l’ancien cours n’est pas appliqué : vérifiez alors le symbole de la ligne.</small></section>`;
+    <small>Source : Yahoo Finance${window.__NATIVE ? ', lu directement par l’app' : ' via votre connecteur Firecrawl (5 crédits par ligne et 5 pour le taux de change)'}. Les cours en dollars sont convertis en euros. Un écart de plus de 35 % avec l’ancien cours n’est pas appliqué : vérifiez alors le symbole de la ligne.</small></section>`;
 }
 setTimeout(autoCours, 3500);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(autoCours, 800); });
