@@ -292,6 +292,7 @@ VUES.suivisport = function () {
     <section class="sp-tuile"><span class="t-lbl">Journal · 12 semaines</span>${journal(m.id)}</section>
     ${aFaire.length ? `<section class="sp-tuile"><span class="t-lbl">À faire aujourd’hui</span>${aFaire.map(x => `<div class="rang"><span class="sp-rec-ico">${icoSport(x.type, 20)}</span><span class="rang-txt"><b>${esc(x.titre || nomSport(x.type))}</b><small>${x.duree} min · effort ${x.rpe}/10</small></span><button class="btn" data-act="ouvrir" data-sheet="seance" data-plan="${x.id}">Valider</button></div>`).join('')}</section>` : ''}
     ${rec ? `<section class="sp-tuile"><span class="t-lbl">Records</span>${rec}</section>` : ''}
+    ${carteParcours(m)}
     ${carteAllure(m)}
     <div class="chips" role="group" aria-label="Fil d’activités"><button data-act="fil-mode" data-v="moi" aria-pressed="${filMode === 'moi'}">Mes activités</button><button data-act="fil-mode" data-v="famille" aria-pressed="${filMode === 'famille'}">Fil de la famille</button></div>
     ${fil.map(s => carteFil(s)).join('') || '<section class="sp-tuile"><p class="vide">Aucune séance. Touchez « + Séance » pour publier la première.</p></section>'}`;
@@ -347,14 +348,14 @@ VUES.conseilssport = function () {
 
 // ---------- Feuilles ----------
 SHEETS.seance = d => {
-  const s = d.id ? etat.sportSeances.find(x => x.id === d.id) : null, pl_ = d.plan ? trouverPrevue(sportM, d.plan) : null;
+  const s = d.id ? etat.sportSeances.find(x => x.id === d.id) : null, pc = d.parcours ? etat.sportParcours.find(x => x.id === d.parcours) : null, pl_ = d.plan ? trouverPrevue(sportM, d.plan) : pc ? { titre: pc.nom, type: pc.sport, distance: pc.km } : null;
   const v = (k, def = '') => (s ? s[k] : pl_ && pl_[k] != null ? pl_[k] : def);
   return { titre: s ? 'Modifier la séance' : 'Enregistrer une séance', corps: `<form class="formulaire" data-form="seance"><input type="hidden" name="id" value="${s ? s.id : ''}"><input type="hidden" name="allurePrevue" value="${esc(s ? s.allurePrevue || '' : pl_ ? pl_.allure || '' : '')}">
     <div class="duo">${fld('Pour', `<select name="membre">${optionsMembres(s ? s.membre : sportM)}</select>`)}${fld('Date', `<input type="date" name="date" value="${s ? s.date : aujourdhui()}" required>`)}</div>
     <div class="duo">${fld('Sport', `<select name="type">${optSel(SPORTS, v('type', 'course'))}</select>`)}${fld('Durée (min)', `<input type="number" name="duree" min="1" max="600" step="0.1" required inputmode="decimal" value="${v('duree')}">`)}</div>
     ${fld('Effort ressenti (1 à 10)', `<select name="rpe">${optRpe(Number(v('rpe', 5)))}</select>`)}
     ${fld('Titre (facultatif)', `<input name="titre" autocomplete="off" value="${esc(v('titre'))}" placeholder="Sortie longue">`)}
-    <div class="duo">${fld('Distance (km)', `<input type="number" name="distance" min="0" step="0.1" inputmode="decimal" value="${s && s.distance ? s.distance : ''}">`)}${fld('Note', `<input name="note" autocomplete="off" value="${esc(s ? s.note : '')}">`)}</div>
+    <div class="duo">${fld('Distance (km)', `<input type="number" name="distance" min="0" step="0.1" inputmode="decimal" value="${s && s.distance ? s.distance : pc ? pc.km : ''}">`)}${fld('Note', `<input name="note" autocomplete="off" value="${esc(s ? s.note : '')}">`)}</div>
     ${!s && !pl_ ? `<div class="duo">${fld('Répéter cette séance', `<select name="rec">${REC_SPORT.filter(r => r[0] !== 'jour').map(([k, n]) => `<option value="${k}">${k ? n : 'Ne pas répéter'}</option>`).join('')}</select>`)}${fld('Jusqu’au (facultatif)', '<input type="date" name="fin">')}</div>
     <small>Une séance répétée est ajoutée à votre plan : elle apparaîtra aux prochaines dates avec le bouton « Valider ».</small>` : ''}
     <label class="rang-main"><input type="checkbox" class="coche" name="douleur"${s && s.douleur ? ' checked' : ''}><span class="rang-txt">Douleur ou gêne pendant la séance<small>Utilisé pour adapter les conseils de récupération</small></span></label>
@@ -431,3 +432,87 @@ ACTIONS['prog-semaine'] = async el => {
   if (p.courseJour != null) p.course = iso(ajouteJours(parse(p.debut), 7 * (p.semaines.length - 1) + p.courseJour));
 };
 ACTIONS['allure-type'] = el => { allureType = el.dataset.v; return 'vue'; };
+
+// ---------- Parcours proposés (Claude via « sample » ; la position reste sur l'appareil, jamais synchronisée) ----------
+const SPORTS_PARCOURS = [['course', 'Course à pied'], ['velo', 'Vélo'], ['marche', 'Marche ou randonnée']];
+const parcoursEnCours = {};
+const kmEntre = (a, b) => { const R = 6371, r = x => x * Math.PI / 180, dl = r(b.lat - a.lat), dg = r(b.lng - a.lng), h = Math.sin(dl / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dg / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+const longueurBoucle = pts => pts.reduce((s, p, i) => s + kmEntre(p, pts[(i + 1) % pts.length]), 0) * 1.25; // × 1,25 : les rues ne sont pas des lignes droites
+function promptParcours(o) {
+  const lieu = o.pos ? `aux coordonnées GPS ${o.pos} (déduis le quartier ou la ville)` : `à « ${o.depart} »`;
+  const mode = { course: 'course à pied', velo: 'vélo', marche: 'marche ou randonnée' }[o.sport];
+  return `Tu es un guide sportif local. Propose un parcours en boucle de ${o.km} km pour la ${mode}, au départ et à l'arrivée ${lieu}.
+Réponds uniquement avec un objet JSON : {"nom":"Boucle du parc ...","points":[{"nom":"Départ : ...","lat":0.00000,"lng":0.00000}],"surface":"...","denivele":"...","conseils":["..."]}.
+Règles : 6 à 10 points dans l'ordre du parcours, le premier est le départ (la boucle se referme sur lui) ; utilise des lieux réels et connus (parcs, quais, pistes cyclables, ponts, places) sur des voies adaptées et sûres, loin des routes rapides ; coordonnées décimales à 5 chiffres, aussi exactes que possible ; la distance de la boucle doit approcher ${o.km} km ; "surface" et "denivele" en une courte phrase (« principalement bitume et chemin stabilisé », « plat ») ; 2 à 4 conseils courts (éclairage, heures calmes, point d'eau). Écris en français.`;
+}
+async function lancerParcours(o) {
+  let sample = null;
+  try { sample = window.claude && window.claude.use ? await window.claude.use('sample') : null; } catch { sample = null; }
+  if (!sample) { parcoursEnCours[o.membre] = { etat: 'erreur', code: 'indisponible' }; rendreSiPossible(); return; }
+  parcoursEnCours[o.membre] = { etat: 'cours' }; rendreSiPossible();
+  try {
+    const d = await sample.json(promptParcours(o));
+    const t = (x, n) => String(x == null ? '' : x).slice(0, n);
+    let pts = (Array.isArray(d && d.points) ? d.points : []).map(x => ({ nom: t(x && x.nom, 80), lat: Number(x && x.lat), lng: Number(x && x.lng) })).filter(x => x.nom && Math.abs(x.lat) <= 90 && Math.abs(x.lng) <= 180 && (x.lat || x.lng)).slice(0, 12);
+    if (pts.length) pts = pts.filter(x => kmEntre(pts[0], x) < Math.max(12, o.km)); // écarte les points aberrants
+    if (pts.length < 4) throw { code: 'format' };
+    const km = Math.round(longueurBoucle(pts) * 10) / 10;
+    etat.sportParcours = [{ id: uid(), membre: o.membre, nom: t(d.nom, 90) || `Boucle de ${o.km} km`, sport: o.sport, demande: o.km, km, depart: o.depart, points: pts, surface: t(d.surface, 160), denivele: t(d.denivele, 160), conseils: (Array.isArray(d.conseils) ? d.conseils : []).slice(0, 5).map(c => t(c, 200)), date: aujourdhui() }, ...etat.sportParcours].slice(0, 12);
+    sauver();
+    delete parcoursEnCours[o.membre];
+  } catch (e) { parcoursEnCours[o.membre] = { etat: 'erreur', code: e && e.code === 'cancelled' ? 'annule' : (e && e.code) || 'inconnue' }; }
+  rendreSiPossible();
+}
+const ERR_PARCOURS = { not_granted: 'Autorisation refusée : acceptez l’utilisation de Claude pour obtenir un parcours.', rate_limited: 'Trop de demandes en peu de temps. Réessayez dans un moment.', indisponible: 'La génération n’est pas disponible ici.', format: 'La réponse n’a pas pu être lue (parcours trop incertain pour ce lieu). Précisez le départ et réessayez.' };
+const gmParcours = (pts, mode) => {
+  const a = pts.slice(0, 11).map(x => `${x.lat},${x.lng}`);
+  return `https://www.google.com/maps/dir/?api=1&travelmode=${mode === 'velo' ? 'bicycling' : 'walking'}&origin=${a[0]}&destination=${a[0]}${a.length > 1 ? '&waypoints=' + encodeURIComponent(a.slice(1).join('|')) : ''}`;
+};
+function carteParcours(m) {
+  const e = parcoursEnCours[m.id], l = etat.sportParcours.filter(x => x.membre === m.id), p = l[0];
+  let corps = '';
+  if (e && e.etat === 'cours') corps = '<p class="mut">Recherche d’un parcours autour de votre point de départ… (quelques dizaines de secondes)</p>';
+  else {
+    if (e && e.etat === 'erreur' && e.code !== 'annule') corps += `<p class="mut">${esc(ERR_PARCOURS[e.code] || 'Une erreur est survenue. Réessayez.')}</p>`;
+    if (p) {
+      const lieux = p.points.map(x => ({ ...x, jour: 1 })), ecart = Math.abs(p.km - p.demande) / p.demande > 0.35;
+      corps += `<div class="carte-tete"><h3>${esc(p.nom)}</h3><span class="pill pri">≈ ${kmTxt(p.km)} km</span></div>
+        ${carteSvg(lieux, 1, p.depart, true)}
+        <ul class="liste">${p.points.map((x, i) => `<li class="rang" style="min-height:40px"><span class="pt-n" style="background:${coulJour(1)}">${i + 1}</span><span class="rang-txt">${esc(x.nom)}</span></li>`).join('')}</ul>
+        ${p.surface ? `<div class="kv"><span>Terrain</span><b style="text-align:right">${esc(p.surface)}</b></div>` : ''}${p.denivele ? `<div class="kv"><span>Dénivelé</span><b style="text-align:right">${esc(p.denivele)}</b></div>` : ''}
+        ${p.conseils.length ? `<ul class="liste">${p.conseils.map(c => `<li class="rang" style="min-height:0"><span class="rang-txt">${esc(c)}</span></li>`).join('')}</ul>` : ''}
+        ${ecart ? `<small>Longueur estimée ${kmTxt(p.km)} km pour ${kmTxt(p.demande)} km demandés : relancez pour un tracé plus proche.</small>` : ''}
+        <div class="rangee"><a class="btn" target="_blank" rel="noopener" href="${esc(gmParcours(p.points, p.sport))}">Ouvrir l’itinéraire dans Google Maps ↗</a><button class="btn sec" data-act="ouvrir" data-sheet="seance" data-parcours="${p.id}">Enregistrer la sortie</button></div>
+        <div class="rangee"><button class="btn sec" data-act="ouvrir" data-sheet="parcours">Autre parcours</button><button class="btn danger" data-act="parcours-del" data-id="${p.id}">Supprimer</button></div>
+        <small>Tracé schématique proposé par Claude à partir de connaissances générales, sans accès à internet : longueur estimée à ±25 %. Vérifiez l’itinéraire dans Google Maps avant de partir, surtout de nuit.</small>`;
+    } else corps += '<p class="mut">Indiquez votre point de départ et la distance voulue : Claude propose une boucle avec sa carte et un lien d’itinéraire Google Maps.</p><button class="btn" data-act="ouvrir" data-sheet="parcours">Proposer un parcours</button>';
+  }
+  return `<section class="sp-tuile"><span class="t-lbl">Parcours près de chez vous</span>${corps}</section>`;
+}
+SHEETS.parcours = () => {
+  const m = membreSport(), prochaine = prevuesLe(m.id, aujourdhui()).find(x => x.type === 'course' && x.distance) || null;
+  return { titre: 'Proposer un parcours', corps: `<form class="formulaire" data-form="parcours"><input type="hidden" name="pos" value="">
+    ${fld('Point de départ (adresse, quartier ou ville)', `<input name="depart" autocomplete="street-address" value="${esc(etat.parcoursDepart || '')}" placeholder="Parc de la Tête d’Or, Lyon" required>`)}
+    <button type="button" class="btn sec" data-act="geoloc">Me localiser</button><small id="geoInfo">La localisation automatique n’est pas toujours autorisée dans cette fenêtre : saisissez alors votre ville.</small>
+    <div class="duo">${fld('Sport', `<select name="sport">${optSel(SPORTS_PARCOURS, 'course')}</select>`)}${fld('Distance (km)', `<input type="number" name="km" min="1" max="100" step="0.5" required inputmode="decimal" value="${prochaine ? prochaine.distance : 8}">`)}</div>
+    <small>Votre position reste sur cet appareil et n’est pas partagée avec la famille. Elle est envoyée à Claude pour calculer le parcours.</small>
+    <button class="btn plein">Proposer un parcours</button></form>` };
+};
+FORMS.parcours = f => {
+  const m = membreSport(); if (!m) return;
+  const o = { membre: m.id, depart: f.depart.value.trim(), pos: f.pos.value, sport: f.sport.value, km: Math.max(1, Number(f.km.value) || 8) };
+  if (o.depart !== 'Ma position actuelle') o.pos = '';
+  etat.parcoursDepart = o.depart;
+  setTimeout(() => lancerParcours(o), 30);
+};
+ACTIONS.geoloc = el => {
+  const f = el.closest('form'), info_ = document.getElementById('geoInfo');
+  if (!navigator.geolocation) { if (info_) info_.textContent = 'Localisation indisponible : saisissez votre ville.'; return false; }
+  if (info_) info_.textContent = 'Localisation en cours…';
+  navigator.geolocation.getCurrentPosition(
+    pos => { if (!f) return; f.elements.pos.value = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`; f.elements.depart.value = 'Ma position actuelle'; if (info_) info_.textContent = 'Position détectée.'; },
+    () => { if (info_) info_.textContent = 'Localisation refusée ou indisponible ici : saisissez votre ville ou votre adresse.'; },
+    { timeout: 8000, maximumAge: 60000 });
+  return false;
+};
+ACTIONS['parcours-del'] = el => { etat.sportParcours = etat.sportParcours.filter(x => x.id !== el.dataset.id); };

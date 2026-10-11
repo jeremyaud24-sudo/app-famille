@@ -280,7 +280,7 @@ async function lancerCarte(id) {
   } catch (e) { progEnCours[id] = { etat: 'erreur', code: (e && e.code) || 'inconnue' }; }
   rendreSiPossible();
 }
-function carteSvg(lieux, sel, dest) {
+function carteSvg(lieux, sel, dest, boucle) {
   const W = 360, H = 270, pad = 38, la = lieux.map(x => x.lat), lo = lieux.map(x => x.lng), cl = (Math.min(...la) + Math.max(...la)) / 2, kx = Math.cos(cl * Math.PI / 180);
   const x0 = Math.min(...lo) * kx, x1 = Math.max(...lo) * kx, y0 = Math.min(...la), y1 = Math.max(...la), sx = Math.max(x1 - x0, 0.012), sy = Math.max(y1 - y0, 0.012);
   const k = Math.min((W - 2 * pad) / sx, (H - 2 * pad) / sy), ox = (W - sx * k) / 2 - x0 * k, oy = (H + sy * k) / 2 + y0 * k;
@@ -290,7 +290,9 @@ function carteSvg(lieux, sel, dest) {
   const rues = Array.from({ length: 9 }, () => `M${(rnd() * W) | 0} 0L${(rnd() * W) | 0} ${H}`).join('') + Array.from({ length: 6 }, () => `M0 ${(rnd() * H) | 0}L${W} ${(rnd() * H) | 0}`).join('');
   const parcs = Array.from({ length: 3 }, () => { const cx = rnd() * W, cy = rnd() * H, r = 26 + rnd() * 30; return `<ellipse cx="${cx | 0}" cy="${cy | 0}" rx="${r | 0}" ry="${(r * .6) | 0}" class="cv-parc"/>`; }).join('');
   const jours = [...new Set(lieux.map(x => x.jour))];
-  const traits = jours.filter(j => !sel || sel === j).map(j => { const pts = lieux.filter(x => x.jour === j).map(P); return pts.length > 1 ? `<path d="M${pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L')}" fill="none" stroke="${coulJour(j)}" stroke-width="${sel ? 3 : 2}" stroke-dasharray="1 6" stroke-linecap="round" opacity=".9"/>` : ''; }).join('');
+  const tracePts = lieux.map(P).map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1));
+  const traitBoucle = boucle ? `<path d="M${tracePts.join('L')}Z" fill="none" stroke="#fff" stroke-width="7" stroke-linejoin="round" opacity=".85"/><path d="M${tracePts.join('L')}Z" fill="none" stroke="var(--pri)" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/>` : '';
+  const traits = boucle ? traitBoucle : jours.filter(j => !sel || sel === j).map(j => { const pts = lieux.filter(x => x.jour === j).map(P); return pts.length > 1 ? `<path d="M${pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L')}" fill="none" stroke="${coulJour(j)}" stroke-width="${sel ? 3 : 2}" stroke-dasharray="1 6" stroke-linecap="round" opacity=".9"/>` : ''; }).join('');
   const pins = lieux.map((x, i) => { const [px, py] = P(x), on = !sel || sel === x.jour, lab = sel === x.jour, gauche = px > W * .6;
     return `<g opacity="${on ? 1 : .28}"><circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="10.5" fill="${coulJour(x.jour)}" stroke="#fff" stroke-width="2.4"/><text x="${px.toFixed(1)}" y="${(py + 4).toFixed(1)}" text-anchor="middle" class="cv-n">${i + 1}</text>${lab ? `<text x="${(px + (gauche ? -17 : 17)).toFixed(1)}" y="${(py + 4).toFixed(1)}" text-anchor="${gauche ? 'end' : 'start'}" class="cv-nom">${esc(x.nom.length > 24 ? x.nom.slice(0, 23) + '…' : x.nom)}</text>` : ''}</g>`; }).join('');
   const kmPx = 111.2 / k, bar = [0.2, 0.5, 1, 2, 5, 10, 20].find(v => v / kmPx >= 44) || 20;

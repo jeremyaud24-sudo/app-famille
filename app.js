@@ -8,7 +8,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 // ---------- Données ----------
-const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], menuVal: [], menuRefus: [], accueil: {}, sportProfils: [], sportPlan: [], sportSeances: [], sportProg: [], epargne: [] });
+const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], menuVal: [], menuRefus: [], accueil: {}, sportProfils: [], sportPlan: [], sportSeances: [], sportProg: [], epargne: [], sportParcours: [], parcoursDepart: '' });
 let etat = charger();
 
 function charger() {
@@ -400,7 +400,7 @@ function feuille(titre, corps) {
 const fermerFeuille = () => document.querySelectorAll('.modal').forEach(m => m.remove());
 
 // ---------- Actions ----------
-const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del', 'pret-del', 'recette-del', 'carnet-del', 'cadeau-del', 'voyage-del', 'voy-item-del', 'voy-etape-del', 'voy-dep-del', 'seance-del', 'plan-item-del', 'prog-del', 'prog-del-voy', 'epargne-del']);
+const UNDO = new Set(['course-del', 'course-vider', 'tache-del', 'event-del', 'tx-del', 'membre-del', 'pf-del', 'rec-del', 'obj-del', 'div-del', 'pret-del', 'recette-del', 'carnet-del', 'cadeau-del', 'voyage-del', 'voy-item-del', 'voy-etape-del', 'voy-dep-del', 'seance-del', 'parcours-del', 'plan-item-del', 'prog-del', 'prog-del-voy', 'epargne-del']);
 const ACTIONS = {
   'ouvrir': el => { ouvrirFeuille(el.dataset.sheet, el.dataset); return 'vue'; },
   'actif': el => { etat.actif = el.dataset.id; fermerFeuille(); },
