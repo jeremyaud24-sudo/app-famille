@@ -1,0 +1,9 @@
+#verrou{position:fixed;inset:0;z-index:1000;background:var(--bg);display:grid;place-items:center;padding:24px;overflow:auto}
+.verrou-boite{width:100%;max-width:380px;display:flex;flex-direction:column;gap:14px;align-items:stretch;text-align:center}
+.verrou-boite svg{align-self:center}
+.verrou-boite h1{font-size:1.6rem}
+.verrou-boite p{margin:0;color:var(--mut)}
+.verrou-boite form{display:flex;flex-direction:column;gap:10px}
+.verrou-boite input{text-align:center;font-size:1.1rem;min-height:48px}
+.verrou-msg{min-height:1.4em;color:var(--bad)!important;font-weight:600}
+.verrou-oubli{border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--surf)}

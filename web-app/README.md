@@ -28,7 +28,11 @@ npm install
 npm run build      # produit web-app/dist/
 ```
 
-## Publier (sans Mac, depuis le PC)
+## Publier
+
+**Le plus simple (aucun outil à installer, faisable depuis un navigateur)** : le dossier `web-app/dist/` est déjà construit et versionné dans le dépôt. Sur Cloudflare Pages, choisissez *Connect to Git*, sélectionnez ce dépôt, laissez la commande de build **vide** et mettez `web-app/dist` comme dossier de sortie. Chaque mise à jour poussée sur `main` redéploie le site.
+
+Alternative : construire soi-même puis envoyer le dossier :
 
 - **Cloudflare Pages** (recommandé, gratuit) : Workers & Pages › Create › Pages › *Upload assets* › glissez le dossier `dist/`. Les en-têtes de sécurité viennent du fichier `_headers`.
 - **Netlify** : *Add new site › Deploy manually*, glissez `dist/`. Même fichier `_headers`.

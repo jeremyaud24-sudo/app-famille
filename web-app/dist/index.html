@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.anthropic.com https://api.open-meteo.com https://geocoding-api.open-meteo.com https://*.workers.dev; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#b4522f">
+<title>App Famille</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Famille">
+<meta name="referrer" content="no-referrer">
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="verrou.css">
+</head>
+<body>
+<header class="top">
+  <div><p class="date" id="sousTitre"></p><h1 id="titre">Accueil</h1></div>
+  <div class="top-outils"><button class="icone" id="btnRech" data-act="ouvrir" data-sheet="recherche" aria-label="Rechercher"></button><button class="avatar-btn" id="btnProfil" data-act="ouvrir" data-sheet="profil" aria-label="Profil, famille et réglages"></button></div>
+</header>
+<div class="sous-nav" id="sousNav" hidden></div>
+<main id="vue"></main>
+<div id="fabZone"></div>
+<nav class="tabs" id="tabs" aria-label="Navigation principale"></nav>
+<script src="verrou.js" data-scripts="shim.js,app.js,graphes.js,fin-ui.js,bourse.js,cours.js,prets.js,finances.js,fin-vues.js,illustrations.js,vie.js,sport.js,menus.js,partage.js,meteo.js,accueil.js,sync.js"></script>
+<script src="enregistrer-sw.js"></script>
+</body>
+</html>
