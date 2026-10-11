@@ -40,3 +40,5 @@ puis ouvrir http://localhost:8000 (le mode hors ligne et l'installation nécessi
 ## App iPhone
 
 Une coque iOS (Capacitor) est disponible dans `ios-app/` : voir `ios-app/README.md`.
+
+Une version web autonome et verrouillée (code d'accès, données chiffrées, CSP stricte) est décrite dans `web-app/README.md`.

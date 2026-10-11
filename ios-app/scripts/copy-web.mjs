@@ -11,7 +11,7 @@ let html = readFileSync(join(racine, 'index.html'), 'utf8');
 const scripts = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m => m[1]);
 for (const f of [...scripts, 'style.css', 'manifest.json']) cpSync(join(racine, f), join(www, f));
 cpSync(join(racine, 'icons'), join(www, 'icons'), { recursive: true });
-cpSync(join(ici, '..', 'native', 'native-shim.js'), join(www, 'native-shim.js'));
+cpSync(join(ici, '..', '..', 'standalone', 'shim.js'), join(www, 'native-shim.js'));
 cpSync(join(ici, '..', 'native', 'native.css'), join(www, 'native.css'));
 
 // Polices (variables, sous-ensemble latin) copiées depuis node_modules

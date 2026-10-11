@@ -11,6 +11,7 @@ const ERR_COURS = {
   blocked_by_policy: 'L’accès à Firecrawl est bloqué par la politique de votre organisation.',
   approval_required: 'Autorisez l’accès à Firecrawl pour actualiser les cours.',
   rate_limited: 'Trop de demandes en peu de temps. Réessayez dans quelques minutes.',
+  no_relay: 'Cours automatiques indisponibles dans l’application web sans relais : configurez-le dans Famille, ou saisissez les cours à la main.',
   tool_error: 'Firecrawl a refusé la demande (crédits épuisés ou service indisponible).',
 };
 const heureCourte = ms => { const d = new Date(ms); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
