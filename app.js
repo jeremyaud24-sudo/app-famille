@@ -8,7 +8,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 // ---------- Données ----------
-const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], menuVal: [], menuRefus: [], accueil: {}, sportProfils: [], sportPlan: [], sportSeances: [], sportProg: [], epargne: [], sportParcours: [], parcoursDepart: '', meteo: {} });
+const defaut = () => ({ membres: [], actif: null, courses: [], taches: [], events: [], repas: {}, tx: [], plafonds: {}, pf: [], pfCfg: {}, freq: {}, recurrents: [], objectifs: [], divs: [], pfHisto: [], prets: [], pretCfg: {}, treso: {}, pat: {}, patHisto: [], recettes: [], carnet: [], voyages: [], cadeaux: [], planExec: [], menuVal: [], menuRefus: [], accueil: {}, sportProfils: [], sportPlan: [], sportSeances: [], sportProg: [], epargne: [], sportParcours: [], parcoursDepart: '', meteo: {}, contacts: [] });
 let etat = charger();
 
 function charger() {
@@ -258,7 +258,7 @@ const VUES = {
         <button class="lien" data-act="aujourdhui" style="align-self:center">Revenir à aujourd’hui</button>
       </section>
       <section class="carte"><h2 class="cap">${fmtLong(jourSel)}</h2>
-        <ul class="liste">${evs.map(e => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="event" data-id="${e.id}" aria-label="Modifier ${esc(e.titre)}"><span class="heure">${esc(e.heure || '—')}</span><span class="rang-txt">${esc(e.titre)}${e.rec ? `<small>↻ ${REC_NOMS[e.rec].toLowerCase()}</small>` : ''}</span>${avatar(e.membre)}</button>
+        <ul class="liste">${evs.map(e => `<li class="rang"><button class="rang-btn" data-act="ouvrir" data-sheet="event" data-id="${e.id}" aria-label="Modifier ${esc(e.titre)}"><span class="heure">${esc(e.heure || '—')}</span><span class="rang-txt">${esc(e.titre)}${e.rec || (e.invites && e.invites.length) ? `<small>${[e.rec ? '↻ ' + REC_NOMS[e.rec].toLowerCase() : '', e.invites && e.invites.length ? '✉ ' + e.invites.length + ' invité' + pl(e.invites.length) : ''].filter(Boolean).join(' · ')}</small>` : ''}</span>${avatar(e.membre)}</button>
           <button class="icone" data-act="event-del" data-id="${e.id}" aria-label="Supprimer ${esc(e.titre)}">${ico('x', 18)}</button></li>`).join('')
           || '<li class="vide">Aucun événement ce jour-là.</li>'}</ul></section>`;
   },
@@ -309,16 +309,20 @@ const SHEETS = {
     return { titre: e ? 'Modifier l’événement' : 'Nouvel événement', corps: `<form class="formulaire" data-form="event"><input type="hidden" name="id" value="${e ? e.id : ''}">
     ${fld('Titre', `<input name="titre" required autocomplete="off" placeholder="Rendez-vous dentiste" value="${esc(e ? e.titre : '')}">`)}
     <div class="duo">${fld('Date', `<input type="date" name="date" value="${e ? e.date : jourSel}" required>`)}${fld('Heure', `<input type="time" name="heure" value="${e ? e.heure || '' : ''}">`)}</div>
+    <div class="duo">${fld('Durée (min)', `<input type="number" name="duree" min="5" max="1440" step="5" inputmode="numeric" value="${e ? e.duree || 60 : 60}">`)}${fld('Lieu (facultatif)', `<input name="lieu" autocomplete="off" value="${esc(e ? e.lieu || '' : '')}">`)}</div>
     <div class="duo">${fld('Pour', `<select name="membre">${optionsMembres(e ? e.membre : '', 'Toute la famille')}</select>`)}
     ${fld('Répéter', `<select name="rec"><option value="">Jamais</option>${Object.entries(REC_NOMS).map(([k, n]) => `<option value="${k}"${e && e.rec === k ? ' selected' : ''}>${n}</option>`).join('')}</select>`)}</div>
+    ${typeof champInvites === 'function' ? champInvites(e) : ''}
     ${e && e.rec ? '<small>La modification s’applique à toutes les occurrences de cet événement récurrent.</small>' : ''}
-    <button class="btn plein">${e ? 'Enregistrer' : 'Ajouter l’événement'}</button>${e ? `<button type="button" class="btn danger plein" data-act="event-del" data-id="${e.id}">Supprimer</button>` : ''}</form>` };
+    <button class="btn plein">${e ? 'Enregistrer' : 'Ajouter l’événement'}</button>${e ? `<button type="button" class="btn danger plein" data-act="event-del" data-id="${e.id}">Supprimer</button>` : ''}</form>
+    ${e && typeof blocPartage === 'function' ? blocPartage(e) : ''}` };
   },
   membre: d => {
     const m = d.id ? membre(d.id) : null, coul = m ? m.couleur : couleurLibre();
     return { titre: m ? 'Modifier le membre' : 'Nouveau membre', corps: `<form class="formulaire" data-form="membre"><input type="hidden" name="id" value="${m ? m.id : ''}">
     ${fld('Prénom', `<input name="nom" required autocomplete="off" value="${esc(m ? m.nom : '')}">`)}
     ${fld('Date de naissance (facultatif)', `<input type="date" name="naissance" value="${esc(m ? m.naissance || '' : '')}">`)}
+    ${fld('Adresse e-mail (facultatif, pour les invitations)', `<input type="email" name="email" autocomplete="off" autocapitalize="none" value="${esc(m ? m.email || '' : '')}">`)}
     <fieldset class="champ" style="border:0;padding:0;margin:0"><legend style="padding:0;margin-bottom:6px">Couleur</legend>
       <div class="palette" role="radiogroup" aria-label="Couleur du membre">${COULEURS.map((c, k) => { const pris = etat.membres.find(x => x.couleur === c && (!m || x.id !== m.id)); return `<label title="${NOMS_COULEURS[k]}${pris ? ' (utilisée par ' + esc(pris.nom) + ')' : ''}" style="--c:${c}"><input type="radio" name="couleur" value="${c}" aria-label="${NOMS_COULEURS[k]}"${c === coul ? ' checked' : ''}><span></span></label>`; }).join('')}</div></fieldset>
     <button class="btn plein">${m ? 'Enregistrer' : 'Ajouter'}</button></form>` };
@@ -494,7 +498,7 @@ const FORMS = {
     const o = { titre: f.titre.value.trim(), membre: f.membre.value, points: Number(f.points.value) || 0, echeance: f.echeance.value, rec: f.rec.value }, t = f.id.value && etat.taches.find(x => x.id === f.id.value);
     if (t) Object.assign(t, o); else etat.taches.push({ id: uid(), ...o, fait: false, par: null });
   },
-  event: f => { const o = { titre: f.titre.value.trim(), date: f.date.value, heure: f.heure.value, membre: f.membre.value, rec: f.rec.value }, e = f.id.value && etat.events.find(x => x.id === f.id.value); if (e) Object.assign(e, o); else etat.events.push({ id: uid(), ...o }); jourSel = f.date.value; moisAff = new Date(parse(jourSel).getFullYear(), parse(jourSel).getMonth(), 1); },
+  event: f => { const inv = typeof parseEmails === 'function' && f.invites ? parseEmails(f.invites.value) : [], o = { titre: f.titre.value.trim(), date: f.date.value, heure: f.heure.value, duree: Number(f.duree.value) || 60, lieu: f.lieu.value.trim(), membre: f.membre.value, rec: f.rec.value, invites: inv }, e = f.id.value && etat.events.find(x => x.id === f.id.value); let cible = e; if (e) Object.assign(e, o); else { cible = { id: uid(), ...o }; etat.events.push(cible); } if (inv.length && typeof rememberContacts === 'function') rememberContacts(inv); if (inv.length) { const id = cible.id; setTimeout(() => ouvrirFeuille('event', { id }), 150); } jourSel = f.date.value; moisAff = new Date(parse(jourSel).getFullYear(), parse(jourSel).getMonth(), 1); },
   tx: f => {
     const m = Math.abs(Number(f.montant.value)) * Number(f.type.value);
     const o = { date: f.date.value, libelle: f.libelle.value.trim(), montant: m, cat: m > 0 ? 'Revenus' : (f.cat.value || devine(f.libelle.value)) };
@@ -516,7 +520,7 @@ const FORMS = {
   },
   objectif: f => etat.objectifs.push({ id: uid(), nom: f.nom.value.trim(), cible: Number(f.cible.value), actuel: Number(f.actuel.value) || 0, date: f.date.value }),
   membre: f => {
-    const o = { nom: f.nom.value.trim(), naissance: f.naissance.value, couleur: f.couleur.value || couleurLibre() };
+    const o = { nom: f.nom.value.trim(), naissance: f.naissance.value, email: f.email ? f.email.value.trim().toLowerCase() : '', couleur: f.couleur.value || couleurLibre() };
     const m = f.id && f.id.value ? membre(f.id.value) : null;
     if (m) { Object.assign(m, o); return; }
     const n = { id: uid(), ...o };
